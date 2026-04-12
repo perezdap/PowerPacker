@@ -1,10 +1,10 @@
 function Build-PowerPackerPackage {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false, Position=0)]
         [string]$MarkdownPath,
 
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false, Position=1)]
         [string]$OutDir,
 
         [Parameter(Mandatory=$false)]
@@ -59,6 +59,33 @@ function Build-PowerPackerPackage {
                 $loadedEnv[$key] = $value
             }
         }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($MarkdownPath)) {
+        Write-Verbose "No MarkdownPath provided. Searching in 'Definitions' folder."
+        $definitions = Get-ChildItem -Path (Join-Path $PSScriptRoot "..\Definitions") -Filter "*.md"
+        if ($definitions.Count -eq 0) {
+            throw "No Markdown definitions found in 'Definitions' folder and no MarkdownPath provided."
+        }
+        $MarkdownPath = $definitions[0].FullName
+        Write-Host "Using latest definition: $($definitions[0].Name)" -ForegroundColor Cyan
+    }
+    elseif (-not (Test-Path $MarkdownPath)) {
+        $localDef = Join-Path $PSScriptRoot "..\Definitions" | Join-Path -ChildPath $MarkdownPath
+        if (Test-Path $localDef) {
+            $MarkdownPath = $localDef
+        }
+        elseif (Test-Path "$localDef.md") {
+            $MarkdownPath = "$localDef.md"
+        }
+        else {
+            throw "Could not find Markdown definition at '$MarkdownPath' or in 'Definitions' folder."
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($OutDir)) {
+        $OutDir = Join-Path $PSScriptRoot "..\Build"
+        Write-Verbose "No OutDir provided. Using default: $OutDir"
     }
 
     $activeProvider = if ($PSBoundParameters.ContainsKey('LlmProvider')) { $LlmProvider } elseif ($loadedEnv.ContainsKey('POWERPACKER_LLM_PROVIDER')) { $loadedEnv['POWERPACKER_LLM_PROVIDER'] } else { $env:POWERPACKER_LLM_PROVIDER }
