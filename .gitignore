@@ -4,3 +4,4 @@ Build/
 Artifacts/
 .tmp/
 .gemini/settings.json
+opencode.json
