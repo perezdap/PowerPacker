@@ -11,12 +11,12 @@ We have removed most of this complexity. The AI Agent now serves as the executio
 ## Status
 - [x] Deleted legacy API orchestration (`Build-PowerPackerPackage.ps1`, `Invoke-LLMGenerate.ps1`).
 - [x] Deleted legacy data collection (`Get-WingetMcpData.ps1`).
-- [x] Drafted universal `AGENT_INSTRUCTIONS.md` containing strict PSADT v4 syntax rules and the Agent Workflow.
-- [x] Rewrote `README.md` to reflect the new framework architecture.
+- [x] Restructured `README.md` as a Human-in-the-Loop Operator's Manual.
+- [x] Restructured `AGENT_INSTRUCTIONS.md` as an AI-Native Technical Specification.
 - [x] Maintained the strict PowerShell AST validator (`Test-PSADTAst.ps1`) for Agent self-correction.
 - [x] Added `New-PowerPackerPackage` to assemble a PSADT v4 template, generated entry script, and downloaded installer into a single artifact.
 - [x] Added Windows Sandbox workspace generation and launch helpers for disposable install/uninstall testing.
-- [x] Added **Local Lab Runner** as a zero-virtualization alternative for testing packages directly on the host or a dedicated VM.
+- [x] Added **Local Lab Runner** as a zero-virtualization alternative for testing.
 
 ## Architecture
 - **Framework Elements:**
