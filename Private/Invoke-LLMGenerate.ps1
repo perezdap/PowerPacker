@@ -62,6 +62,8 @@ CRITICAL RULES:
                 "Content-Type" = "application/json"
             }
             $activeModel = if ([string]::IsNullOrWhiteSpace($Model)) { "gpt-4" } else { $Model }
+            Write-Verbose "Using OpenAI API URI: $uri"
+            Write-Verbose "Using OpenAI Model: $activeModel"
             $body = @{
                 model = $activeModel
                 messages = @(
@@ -81,6 +83,8 @@ CRITICAL RULES:
                 "Content-Type" = "application/json"
             }
             $activeModel = if ([string]::IsNullOrWhiteSpace($Model)) { "claude-3-opus-20240229" } else { $Model }
+            Write-Verbose "Using Anthropic API URI: $uri"
+            Write-Verbose "Using Anthropic Model: $activeModel"
             $body = @{
                 model = $activeModel
                 max_tokens = 4096
