@@ -7,16 +7,54 @@ function Build-PowerPackerPackage {
         [Parameter(Mandatory=$true)]
         [string]$OutDir,
 
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false)]
         [ValidateSet('OpenAI', 'Anthropic')]
         [string]$LlmProvider,
 
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false)]
         [string]$LlmApiKey,
+
+        [Parameter(Mandatory=$false)]
+        [string]$LlmBaseUrl,
+
+        [Parameter(Mandatory=$false)]
+        [string]$LlmModel,
+
+        [Parameter(Mandatory=$false)]
+        [string]$EnvPath = ".env",
 
         [Parameter(Mandatory=$false)]
         [string]$McpServerUrl = "http://localhost:8080"
     )
+
+    if (Test-Path $EnvPath) {
+        Write-Verbose "Loading environment variables from $EnvPath"
+        Get-Content $EnvPath | ForEach-Object {
+            if (-not [string]::IsNullOrWhiteSpace($_) -and $_ -notmatch '^\s*#') {
+                $parts = $_.Split('=', 2)
+                if ($parts.Count -eq 2) {
+                    $key = $parts[0].Trim()
+                    $value = $parts[1].Trim()
+                    if ($value -match "^'(.*)'$" -or $value -match '^"(.*)"$') {
+                        $value = $matches[1]
+                    }
+                    Set-Item -Path "Env:$key" -Value $value
+                }
+            }
+        }
+    }
+
+    $activeProvider = if ($PSBoundParameters.ContainsKey('LlmProvider')) { $LlmProvider } else { $env:POWERPACKER_LLM_PROVIDER }
+    $activeApiKey = if ($PSBoundParameters.ContainsKey('LlmApiKey')) { $LlmApiKey } else { $env:POWERPACKER_LLM_API_KEY }
+    $activeBaseUrl = if ($PSBoundParameters.ContainsKey('LlmBaseUrl')) { $LlmBaseUrl } else { $env:POWERPACKER_LLM_BASE_URL }
+    $activeModel = if ($PSBoundParameters.ContainsKey('LlmModel')) { $LlmModel } else { $env:POWERPACKER_LLM_MODEL }
+
+    if ([string]::IsNullOrWhiteSpace($activeProvider)) {
+        throw "LlmProvider must be provided via parameter or POWERPACKER_LLM_PROVIDER environment variable."
+    }
+    if ([string]::IsNullOrWhiteSpace($activeApiKey)) {
+        throw "LlmApiKey must be provided via parameter or POWERPACKER_LLM_API_KEY environment variable."
+    }
 
     Write-Verbose "Parsing $MarkdownPath"
     $parsedData = Parse-PackageMd -Path $MarkdownPath
@@ -46,8 +84,8 @@ function Build-PowerPackerPackage {
         Detection = $parsedData.Detection
     }
 
-    Write-Verbose "Prompting LLM ($LlmProvider)"
-    $generatedCode = Invoke-LLMGenerate -Provider $LlmProvider -ApiKey $LlmApiKey -Metadata $metadata -Instructions $instructions -WingetData $wingetData
+    Write-Verbose "Prompting LLM ($activeProvider)"
+    $generatedCode = Invoke-LLMGenerate -Provider $activeProvider -ApiKey $activeApiKey -BaseUrl $activeBaseUrl -Model $activeModel -Metadata $metadata -Instructions $instructions -WingetData $wingetData
 
     Write-Verbose "Validating AST"
     $validationResult = Test-PSADTAst -ScriptCode $generatedCode
@@ -55,7 +93,7 @@ function Build-PowerPackerPackage {
 
     if (-not $validationResult.IsValid) {
         Write-Warning "AST Validation failed. Attempting one-time repair loop."
-        $repairedCode = Invoke-LLMGenerate -Provider $LlmProvider -ApiKey $LlmApiKey -Metadata $metadata -Instructions $instructions -WingetData $wingetData -RepairErrors $validationResult.Errors
+        $repairedCode = Invoke-LLMGenerate -Provider $activeProvider -ApiKey $activeApiKey -BaseUrl $activeBaseUrl -Model $activeModel -Metadata $metadata -Instructions $instructions -WingetData $wingetData -RepairErrors $validationResult.Errors
 
         $revalidationResult = Test-PSADTAst -ScriptCode $repairedCode
 
