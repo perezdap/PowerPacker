@@ -8,13 +8,46 @@ function Get-WingetMcpData {
         [string]$McpServerUrl = "http://localhost:8080"
     )
 
-    try {
-        # Call the Winget MCP server. This expects the MCP server to expose a simple REST endpoint for lookup.
-        $mcpUri = "$McpServerUrl/api/winget/$WingetId"
-        $wingetData = Invoke-RestMethod -Uri $mcpUri -Method Get -ErrorAction Stop
+    $wingetData = @{
+        UninstallString = $null
+        ProductCode = $null
+        SilentArgs = $null
+        InstallerType = $null
+        InstallerUrl = $null
+    }
 
-        # Build the uninstall fallback logic based on hierarchy
-        $uninstallLogic = @"
+    # 1. Try real WinGet CLI first (as fallback if MCP is not available as REST)
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        Write-Verbose "Attempting to retrieve data from local WinGet CLI for $WingetId"
+        $showOutput = winget show $WingetId 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            foreach ($line in $showOutput) {
+                if ($line -match 'Installer Type:\s*(.*)') { $wingetData.InstallerType = $matches[1].Trim() }
+                if ($line -match 'Installer Url:\s*(.*)') { $wingetData.InstallerUrl = $matches[1].Trim() }
+                if ($line -match 'Product Code:\s*(.*)') { $wingetData.ProductCode = $matches[1].Trim() }
+            }
+        }
+    }
+
+    # 2. Try the MCP REST API if provided (supports existing mock/proxy setups)
+    if ($McpServerUrl -and ($McpServerUrl -ne "http://localhost:8080" -or (Test-NetConnection -ComputerName "localhost" -Port 8080 -InformationLevel Quiet))) {
+        try {
+            Write-Verbose "Calling WinGet MCP REST endpoint at $McpServerUrl for $WingetId"
+            $mcpUri = "$McpServerUrl/api/winget/$WingetId"
+            $apiData = Invoke-RestMethod -Uri $mcpUri -Method Get -ErrorAction Stop
+            
+            if ($apiData) {
+                $wingetData.UninstallString = $apiData.UninstallString
+                $wingetData.ProductCode = $apiData.ProductCode
+                $wingetData.SilentArgs = $apiData.SilentArgs
+            }
+        } catch {
+            Write-Warning "Failed to retrieve data from MCP REST API at $McpServerUrl"
+        }
+    }
+
+    # Build the uninstall fallback logic based on hierarchy
+    $uninstallLogic = @"
 # 1. MSI ProductCode
 if (`$ProductCode) {
     Remove-MSIApplications -Name `$ProductCode
@@ -38,15 +71,12 @@ else {
 }
 "@
 
-        return [pscustomobject]@{
-            UninstallString = $wingetData.UninstallString
-            ProductCode = $wingetData.ProductCode
-            SilentArgs = $wingetData.SilentArgs
-            UninstallLogic = $uninstallLogic
-        }
-
-    } catch {
-        Write-Warning "Failed to retrieve Winget data from MCP for $WingetId"
-        return $null
+    return [pscustomobject]@{
+        UninstallString = $wingetData.UninstallString
+        ProductCode = $wingetData.ProductCode
+        SilentArgs = $wingetData.SilentArgs
+        InstallerType = $wingetData.InstallerType
+        InstallerUrl = $wingetData.InstallerUrl
+        UninstallLogic = $uninstallLogic
     }
 }
