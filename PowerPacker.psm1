@@ -1,10 +1,19 @@
 # PowerPacker.psm1
 
-# Load Public functions
-Get-ChildItem -Path "$PSScriptRoot/Public" -Filter "*.ps1" -Recurse | ForEach-Object { . $_.FullName }
+$publicDirectory = Join-Path $PSScriptRoot 'Public'
+$privateDirectory = Join-Path $PSScriptRoot 'Private'
+$scriptDirectories = @($publicDirectory, $privateDirectory) | Where-Object { Test-Path -LiteralPath $_ }
 
-# Load Private functions
-Get-ChildItem -Path "$PSScriptRoot/Private" -Filter "*.ps1" -Recurse | ForEach-Object { . $_.FullName }
+foreach ($directory in $scriptDirectories) {
+    Get-ChildItem -Path $directory -Filter "*.ps1" -Recurse | ForEach-Object { . $_.FullName }
+}
 
-# Export Public functions
-Export-ModuleMember -Function (Get-ChildItem -Path "$PSScriptRoot/Public" -Filter "*.ps1" -Recurse | Select-Object -ExpandProperty BaseName)
+$functionsToExport = if (Test-Path -LiteralPath $publicDirectory) {
+    Get-ChildItem -Path $publicDirectory -Filter "*.ps1" -Recurse | Select-Object -ExpandProperty BaseName
+} else {
+    @()
+}
+
+if ($functionsToExport) {
+    Export-ModuleMember -Function ($functionsToExport | Sort-Object -Unique)
+}

@@ -29,7 +29,7 @@ function Parse-PackageMd {
     $sections = @('Install', 'Uninstall', 'Detection')
 
     foreach ($section in $sections) {
-        if ($markdown -match "(?sm)##\s+$section\s*(.*?)(?=^\s*##\s+|\z)") {
+        if ($markdown -match "(?sm)^#{1,6}\s+$section\s*(.*?)(?=^\s*#{1,6}\s+|\z)") {
             $result[$section] = $matches[1].Trim()
         }
     }

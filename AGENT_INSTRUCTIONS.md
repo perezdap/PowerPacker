@@ -12,7 +12,7 @@ When the user asks you to "pack" an application or generate a deployment script,
    - **Retrieve**: The exact `ProductCode` (if it is an MSI), the silent `InstallerUrl` and `InstallerType`, and the `UninstallString` and `SilentArgs` (if available).
 
 ## 2. Script Generation
-Generate a `Deploy-Application.ps1` script for the application.
+Generate a PSADT v4-compatible `Invoke-AppDeployToolkit.ps1` script for the application.
 
 **CRITICAL PSADT v4 RULES:**
 - **No Legacy Cmdlets**: ONLY use pure PSADT v4 syntax. DO NOT use legacy v3 cmdlets like `Execute-Process` or `Show-InstallationWelcome`.
@@ -22,16 +22,54 @@ Generate a `Deploy-Application.ps1` script for the application.
 - **Dynamic Fallbacks**: If `ProductCode` is not provided by WinGet, you MUST implement dynamic registry lookup logic in the `Uninstall` block using the `name` attribute from the definition (searching `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*`).
 - **Detection Logic**: Prioritize Registry-based detection (Uninstall key `InstallLocation`) or Environment Variables over hardcoded file paths.
 - **No Placeholders**: NEVER use placeholders like '{GUID-FROM-MSI-HERE}'. If a ProductCode or path was provided by the Winget MCP, use it.
-- **Module Import**: `Import-Module` MUST use the standard relative path: `.\AppDeployToolkit\AppDeployToolkitMain.ps1` relative to `$PSScriptRoot`.
+- **Template Layout**: The final artifact is based on the latest `PSAppDeployToolkit_Template_v4.zip` release. The packaged entry script MUST live at the package root as `Invoke-AppDeployToolkit.ps1`.
+- **Module Import**: Any explicit `Import-Module` statements MUST reference the bundled toolkit relative to `$PSScriptRoot`.
 
 ## 3. Local Validation (Self-Correction)
 Before showing the final script to the user:
-1. Save your generated script to a temporary file (e.g., `Build/Deploy-temp.ps1`).
+1. Save your generated script to a temporary file (e.g., `Build/Invoke-AppDeployToolkit-temp.ps1`).
 2. Run the local AST validator:
    ```powershell
-   powershell -NoProfile -File ".\Private\Test-PSADTAst.ps1" -ScriptCode (Get-Content -Raw "Build/Deploy-temp.ps1")
+   powershell -NoProfile -File ".\Private\Test-PSADTAst.ps1" -ScriptCode (Get-Content -Raw "Build/Invoke-AppDeployToolkit-temp.ps1")
    ```
 3. If the validator returns `IsValid = False`, you MUST read the errors, fix your script to comply with the rules, and re-validate until it passes.
 
-## 4. Final Delivery
-Once the script passes the AST validation, save it to `Build/Deploy-<winget_id>.ps1` and inform the user of the successful generation, highlighting any specific logic you had to create for the installation or uninstallation.
+## 4. Artifact Packaging
+Once the script passes the AST validation:
+1. Save it to `Build/Invoke-AppDeployToolkit-<winget_id>.ps1`.
+2. Build a ready-to-run PSADT package:
+   ```powershell
+   Import-Module .\PowerPacker.psd1 -Force
+   New-PowerPackerPackage -DefinitionPath ".\Definitions\<definition>.md" -DeployScriptPath ".\Build\Invoke-AppDeployToolkit-<winget_id>.ps1" -Force
+   ```
+3. The package builder will:
+   - Download the latest `PSAppDeployToolkit_Template_v4.zip` release with `gh`
+   - Expand it under `Artifacts\<winget_id>\`
+   - Place your generated entry script at `Artifacts\<winget_id>\Invoke-AppDeployToolkit.ps1`
+   - Download the installer and winget manifest into `Artifacts\<winget_id>\Files\`
+   - Write metadata and raw command output under `Artifacts\<winget_id>\SupportFiles\PowerPacker\`
+
+## 5. Final Delivery
+Inform the user of the generated script path and the final artifact folder, highlighting any specific install, uninstall, or detection logic you had to create.
+
+## 6. Sandbox Validation
+If the user wants a disposable test environment:
+1. Create a Windows Sandbox workspace for the built package:
+   ```powershell
+   Import-Module .\PowerPacker.psd1 -Force
+   New-PowerPackerSandboxTest -PackagePath ".\Artifacts\<winget_id>" -RunUninstall -DisableVGpu -ShutdownWhenComplete -Force
+   ```
+2. This generates:
+   - A `.wsb` file for manual launch and inspection
+   - A sandbox manifest describing the automated test commands
+   - A host-side results folder for the launch log and test summary JSON
+3. To launch the run and wait for results:
+   ```powershell
+   Start-PowerPackerSandboxTest -WorkspaceDirectory ".\Build\Sandbox\<winget_id>" -WaitForResult -BootstrapStepTimeoutSeconds 60
+   ```
+4. The runner will:
+   - Launch the generated `.wsb` with `WindowsSandbox.exe`
+   - Share the package into the sandbox with `wsb share`
+   - Execute install, optional uninstall, and optional probe commands directly with `wsb exec -r System`
+   - Write `sandbox-test-result.json` and `sandbox-launch.log` on the host
+5. Review `sandbox-test-result.json` and `sandbox-launch.log` under the workspace results folder before reporting success.
