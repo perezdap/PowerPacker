@@ -153,16 +153,12 @@ function Test-PSADTAst {
 
     $mainLogicWrappedInTryCatch = $false
     if ($openSessionIndex -ge 0 -and $closeSessionIndex -gt $openSessionIndex) {
-        $statementsBetweenSessionCalls = @()
-        if ($closeSessionIndex -gt ($openSessionIndex + 1)) {
-            $statementsBetweenSessionCalls = @($topLevelStatements[($openSessionIndex + 1)..($closeSessionIndex - 1)])
-        }
-
-        if (
-            $statementsBetweenSessionCalls.Count -eq 1 -and
-            $statementsBetweenSessionCalls[0] -is [System.Management.Automation.Language.TryStatementAst]
-        ) {
-            $mainLogicWrappedInTryCatch = $true
+        # Look for ANY try statement between Open and Close
+        for ($i = $openSessionIndex + 1; $i -lt $closeSessionIndex; $i++) {
+            if ($topLevelStatements[$i] -is [System.Management.Automation.Language.TryStatementAst]) {
+                $mainLogicWrappedInTryCatch = $true
+                break
+            }
         }
     }
 

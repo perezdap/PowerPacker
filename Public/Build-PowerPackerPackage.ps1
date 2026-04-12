@@ -143,6 +143,10 @@ function Build-PowerPackerPackage {
 
         if (-not $revalidationResult.IsValid) {
             Write-Error "Repair loop failed AST validation."
+            if (-not (Test-Path $OutDir)) { New-Item -Path $OutDir -ItemType Directory -Force | Out-Null }
+            $failedPath = Join-Path $OutDir "Deploy-$($parsedData.winget_id).ps1.failed"
+            Set-Content -Path $failedPath -Value $repairedCode
+            Write-Host "Failed script saved to $failedPath for debugging." -ForegroundColor Yellow
             return [pscustomobject]@{ Success = $false; Errors = $revalidationResult.Errors; Repaired = $false }
         }
 
