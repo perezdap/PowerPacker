@@ -56,7 +56,7 @@ CRITICAL RULES:
 
     try {
         if ($Provider -eq 'OpenAI') {
-            $uri = if ([string]::IsNullOrWhiteSpace($BaseUrl)) { 'https://api.openai.com/v1/chat/completions' } else { "$BaseUrl/chat/completions" }
+            $uri = if ([string]::IsNullOrWhiteSpace($BaseUrl)) { 'https://api.openai.com/v1/chat/completions' } else { "$($BaseUrl.TrimEnd('/'))/chat/completions" }
             $headers = @{
                 "Authorization" = "Bearer $ApiKey"
                 "Content-Type" = "application/json"
@@ -74,7 +74,7 @@ CRITICAL RULES:
             $generatedCode = $response.choices[0].message.content
         } else {
             # Anthropic integration (simplified for example)
-            $uri = if ([string]::IsNullOrWhiteSpace($BaseUrl)) { 'https://api.anthropic.com/v1/messages' } else { "$BaseUrl/messages" }
+            $uri = if ([string]::IsNullOrWhiteSpace($BaseUrl)) { 'https://api.anthropic.com/v1/messages' } else { "$($BaseUrl.TrimEnd('/'))/messages" }
             $headers = @{
                 "x-api-key" = $ApiKey
                 "anthropic-version" = "2023-06-01"

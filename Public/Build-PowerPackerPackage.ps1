@@ -27,27 +27,44 @@ function Build-PowerPackerPackage {
         [string]$McpServerUrl = "http://localhost:8080"
     )
 
-    if (Test-Path $EnvPath) {
+    $loadedEnv = @{}
+    if (Test-Path -Path $EnvPath -PathType Leaf) {
         Write-Verbose "Loading environment variables from $EnvPath"
-        Get-Content $EnvPath | ForEach-Object {
-            if (-not [string]::IsNullOrWhiteSpace($_) -and $_ -notmatch '^\s*#') {
-                $parts = $_.Split('=', 2)
-                if ($parts.Count -eq 2) {
-                    $key = $parts[0].Trim()
-                    $value = $parts[1].Trim()
-                    if ($value -match "^'(.*)'$" -or $value -match '^"(.*)"$') {
-                        $value = $matches[1]
-                    }
-                    Set-Item -Path "Env:$key" -Value $value
+        Get-Content -Path $EnvPath -ErrorAction Stop | ForEach-Object {
+            $line = $_
+            if (-not [string]::IsNullOrWhiteSpace($line) -and $line -notmatch '^\s*#') {
+                $parts = $line.Split('=', 2)
+                if ($parts.Count -ne 2) {
+                    Write-Verbose "Skipping malformed .env line: $line"
+                    return
                 }
+
+                $key = $parts[0].Trim()
+                $value = $parts[1].Trim()
+
+                if ([string]::IsNullOrWhiteSpace($key)) {
+                    Write-Verbose "Skipping .env entry with empty key."
+                    return
+                }
+
+                if ($key -notmatch '^POWERPACKER_[A-Z0-9_]+$') {
+                    Write-Verbose "Skipping unsupported .env key '$key'. Only POWERPACKER_-prefixed keys are allowed."
+                    return
+                }
+
+                if ($value -match "^'(.*)'$" -or $value -match '^"(.*)"$') {
+                    $value = $matches[1]
+                }
+
+                $loadedEnv[$key] = $value
             }
         }
     }
 
-    $activeProvider = if ($PSBoundParameters.ContainsKey('LlmProvider')) { $LlmProvider } else { $env:POWERPACKER_LLM_PROVIDER }
-    $activeApiKey = if ($PSBoundParameters.ContainsKey('LlmApiKey')) { $LlmApiKey } else { $env:POWERPACKER_LLM_API_KEY }
-    $activeBaseUrl = if ($PSBoundParameters.ContainsKey('LlmBaseUrl')) { $LlmBaseUrl } else { $env:POWERPACKER_LLM_BASE_URL }
-    $activeModel = if ($PSBoundParameters.ContainsKey('LlmModel')) { $LlmModel } else { $env:POWERPACKER_LLM_MODEL }
+    $activeProvider = if ($PSBoundParameters.ContainsKey('LlmProvider')) { $LlmProvider } elseif ($loadedEnv.ContainsKey('POWERPACKER_LLM_PROVIDER')) { $loadedEnv['POWERPACKER_LLM_PROVIDER'] } else { $env:POWERPACKER_LLM_PROVIDER }
+    $activeApiKey = if ($PSBoundParameters.ContainsKey('LlmApiKey')) { $LlmApiKey } elseif ($loadedEnv.ContainsKey('POWERPACKER_LLM_API_KEY')) { $loadedEnv['POWERPACKER_LLM_API_KEY'] } else { $env:POWERPACKER_LLM_API_KEY }
+    $activeBaseUrl = if ($PSBoundParameters.ContainsKey('LlmBaseUrl')) { $LlmBaseUrl } elseif ($loadedEnv.ContainsKey('POWERPACKER_LLM_BASE_URL')) { $loadedEnv['POWERPACKER_LLM_BASE_URL'] } else { $env:POWERPACKER_LLM_BASE_URL }
+    $activeModel = if ($PSBoundParameters.ContainsKey('LlmModel')) { $LlmModel } elseif ($loadedEnv.ContainsKey('POWERPACKER_LLM_MODEL')) { $loadedEnv['POWERPACKER_LLM_MODEL'] } else { $env:POWERPACKER_LLM_MODEL }
 
     if ([string]::IsNullOrWhiteSpace($activeProvider)) {
         throw "LlmProvider must be provided via parameter or POWERPACKER_LLM_PROVIDER environment variable."

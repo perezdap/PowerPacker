@@ -30,13 +30,33 @@ function Get-WingetMcpData {
     }
 
     # 2. Try the MCP REST API if provided (supports existing mock/proxy setups)
-    # Using Try/Catch with Test-Connection on Linux/macOS or Test-NetConnection on Windows
+    # Use a cross-platform TCP check to determine whether the MCP endpoint is reachable.
     $isPortOpen = $false
-    if ($IsLinux -or $IsMacOS) {
-        # Simple fallback for linux testing or assume true if mocking
-        $isPortOpen = $true
-    } else {
-        $isPortOpen = [bool](Get-Command Test-NetConnection -ErrorAction SilentlyContinue) -and (Test-NetConnection -ComputerName "localhost" -Port 8080 -InformationLevel Quiet)
+    $mcpServerUri = $null
+    if ($McpServerUrl) {
+        try {
+            $mcpServerUri = [System.Uri]$McpServerUrl
+        } catch {
+            $mcpServerUri = $null
+        }
+    }
+
+    if ($mcpServerUri) {
+        if ($IsLinux -or $IsMacOS) {
+            try {
+                $tcpClient = [System.Net.Sockets.TcpClient]::new()
+                try {
+                    $tcpClient.Connect($mcpServerUri.Host, $mcpServerUri.Port)
+                    $isPortOpen = $tcpClient.Connected
+                } finally {
+                    $tcpClient.Dispose()
+                }
+            } catch {
+                $isPortOpen = $false
+            }
+        } else {
+            $isPortOpen = [bool](Get-Command Test-NetConnection -ErrorAction SilentlyContinue) -and (Test-NetConnection -ComputerName $mcpServerUri.Host -Port $mcpServerUri.Port -InformationLevel Quiet)
+        }
     }
 
     if ($McpServerUrl -and ($McpServerUrl -ne "http://localhost:8080" -or $isPortOpen)) {
