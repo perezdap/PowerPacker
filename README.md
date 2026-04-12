@@ -24,9 +24,18 @@ PowerPacker is designed to work seamlessly with the official **Windows Package M
 
 ### Setting up the WinGet MCP Server
 
+The WinGet MCP integration allows AI agents to intelligently discover packages and retrieve their metadata for script generation.
+
 1. Ensure you have the latest version of the App Installer (WinGet).
-2. Find your MCP server path by running `winget mcp`.
-3. Configure your environment (e.g., VS Code) using the provided `.vscode/mcp.json`.
+2. Run the automated setup script from the project root:
+   ```powershell
+   .\Set-Up.ps1
+   ```
+   This will automatically configure your `.vscode/mcp.json` by running `winget mcp` and create your local `.env` file from the example.
+
+3. Update your `.env` with your LLM API keys.
+
+*Alternatively, you can manually configure your `.vscode/mcp.json` by copying `.vscode/mcp.json.example` and updating the path to match the output of `winget mcp`.*
 
 The tool will automatically attempt to use `winget show` as a fallback if the MCP server is not reachable via its REST proxy, ensuring you always get the latest package information.
 
@@ -64,14 +73,13 @@ Check if 7z.exe exists in the Program Files directory.
 
 ### 2. Generate the PSADT Package
 
-Run the `Build-PowerPackerPackage` cmdlet:
+Once your `.env` is configured with your LLM credentials (via `.\Set-Up.ps1`), run the `Build-PowerPackerPackage` cmdlet:
 
 ```powershell
-Build-PowerPackerPackage -MarkdownPath ".\7zip.md" `
-                         -OutDir ".\Build" `
-                         -LlmProvider "OpenAI" `
-                         -LlmApiKey "your-api-key-here"
+Build-PowerPackerPackage -MarkdownPath ".\7zip.md" -OutDir ".\Build"
 ```
+
+*The tool automatically loads configuration from your `.env` file. You can still override these by passing `-LlmProvider` and `-LlmApiKey` explicitly if needed.*
 
 ## How It Works
 

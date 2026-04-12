@@ -14,7 +14,9 @@ Build a native PowerShell tool called "PowerPacker" that generates PSADT v4 depl
 - [x] Created comprehensive `README.md`
 - [x] Initialized `feature/readme-and-docs` branch
 - [x] Updated `Get-WingetMcpData` for real WinGet CLI fallback and MCP server pathing.
-- [x] Added `.vscode/mcp.json` for official WinGet MCP server integration.
+- [x] Implemented automated environment setup via `Set-Up.ps1`.
+- [x] Secured `mcp.json` by moving it to `.gitignore` and providing a template.
+- [x] Improved `Build-PowerPackerPackage` to automatically load credentials from `.env`.
 
 ## Lessons Learned
 *(To be populated as development progresses)*
