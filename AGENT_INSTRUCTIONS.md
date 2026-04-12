@@ -27,9 +27,9 @@ Generate a `Deploy-Application.ps1` script for the application.
 ## 3. Local Validation (Self-Correction)
 Before showing the final script to the user:
 1. Save your generated script to a temporary file (e.g., `Build/Deploy-temp.ps1`).
-2. Run the local AST validator (ensure you dot-source the function and pipe to JSON to see the result):
+2. Run the local AST validator:
    ```powershell
-   . .\Private\Test-PSADTAst.ps1; Test-PSADTAst -ScriptCode (Get-Content -Raw "Build/Deploy-temp.ps1") | ConvertTo-Json
+   powershell -NoProfile -File ".\Private\Test-PSADTAst.ps1" -ScriptCode (Get-Content -Raw "Build/Deploy-temp.ps1")
    ```
 3. If the validator returns `IsValid = False`, you MUST read the errors, fix your script to comply with the rules, and re-validate until it passes.
 
