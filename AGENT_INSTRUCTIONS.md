@@ -7,10 +7,9 @@ When the user asks you to "pack" an application or generate a deployment script,
 ## 1. Information Gathering
 1. **Read the Definition**: Read the corresponding `.md` file in the `Definitions/` folder (e.g., `Definitions/google-go.md`).
 2. **Extract Metadata**: Identify the `winget_id`, `name`, and `version` from the YAML frontmatter, along with any specific `Install`, `Uninstall`, or `Detection` instructions.
-3. **Use WinGet MCP**: Use your available WinGet MCP tool (configured via `mcp.json`) to query the `winget_id`. You must retrieve:
-   - The exact `ProductCode` (if it is an MSI).
-   - The silent `InstallerUrl` and `InstallerType`.
-   - The `UninstallString` and `SilentArgs` (if available).
+3. **Use WinGet MCP**: Use your available WinGet MCP tool (configured via `mcp.json`) to query the `winget_id`. 
+   - **ID Drift**: If `winget show <winget_id>` returns no results, use `winget search <name>` to find the correct identifier and proceed with that.
+   - **Retrieve**: The exact `ProductCode` (if it is an MSI), the silent `InstallerUrl` and `InstallerType`, and the `UninstallString` and `SilentArgs` (if available).
 
 ## 2. Script Generation
 Generate a `Deploy-Application.ps1` script for the application.
@@ -20,15 +19,17 @@ Generate a `Deploy-Application.ps1` script for the application.
 - **Session Management**: You MUST use `Open-ADTSession`, `Close-ADTSession`, and initialize the `$adtSession = @{}` hashtable.
 - **Error Handling**: All main deployment logic (between Open and Close session calls) MUST be wrapped in a `try/catch` block.
 - **Variables**: Define ALL parameters (e.g., `-FilePath`, `-ArgumentList`) as variables in a "Variable Definitions" section at the top of the `try` block. DO NOT use hardcoded strings directly in the `Start-ADTProcess` execution phase.
-- **No Placeholders**: NEVER use placeholders like '{GUID-FROM-MSI-HERE}'. If a ProductCode or path was provided by the Winget MCP, use it. If not, write dynamic PowerShell registry lookup logic.
+- **Dynamic Fallbacks**: If `ProductCode` is not provided by WinGet, you MUST implement dynamic registry lookup logic in the `Uninstall` block using the `name` attribute from the definition (searching `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*`).
+- **Detection Logic**: Prioritize Registry-based detection (Uninstall key `InstallLocation`) or Environment Variables over hardcoded file paths.
+- **No Placeholders**: NEVER use placeholders like '{GUID-FROM-MSI-HERE}'. If a ProductCode or path was provided by the Winget MCP, use it.
 - **Module Import**: `Import-Module` MUST use the standard relative path: `.\AppDeployToolkit\AppDeployToolkitMain.ps1` relative to `$PSScriptRoot`.
 
 ## 3. Local Validation (Self-Correction)
 Before showing the final script to the user:
 1. Save your generated script to a temporary file (e.g., `Build/Deploy-temp.ps1`).
-2. Run the local AST validator:
+2. Run the local AST validator (ensure you dot-source the function and pipe to JSON to see the result):
    ```powershell
-   .\Private\Test-PSADTAst.ps1 -ScriptCode (Get-Content -Raw "Build/Deploy-temp.ps1")
+   . .\Private\Test-PSADTAst.ps1; Test-PSADTAst -ScriptCode (Get-Content -Raw "Build/Deploy-temp.ps1") | ConvertTo-Json
    ```
 3. If the validator returns `IsValid = False`, you MUST read the errors, fix your script to comply with the rules, and re-validate until it passes.
 
