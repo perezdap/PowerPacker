@@ -128,20 +128,28 @@ function Build-PowerPackerPackage {
         Detection = $parsedData.Detection
     }
 
-    Write-Verbose "Prompting LLM ($activeProvider)"
+    Write-Host "[*] Prompting $activeProvider ($activeModel)... " -NoNewline -ForegroundColor Cyan
+    Write-Progress -Activity "PowerPacker" -Status "Generating PSADT v4 script via $activeProvider..." -PercentComplete 50
+    
     $generatedCode = Invoke-LLMGenerate -Provider $activeProvider -ApiKey $activeApiKey -BaseUrl $activeBaseUrl -Model $activeModel -Metadata $metadata -Instructions $instructions -WingetData $wingetData
 
+    Write-Host "Done." -ForegroundColor Green
+    Write-Progress -Activity "PowerPacker" -Status "Validating AST..." -PercentComplete 75
     Write-Verbose "Validating AST"
     $validationResult = Test-PSADTAst -ScriptCode $generatedCode
     $repaired = $false
 
     if (-not $validationResult.IsValid) {
         Write-Warning "AST Validation failed. Attempting one-time repair loop."
+        Write-Host "[*] Repairing script via $activeProvider... " -NoNewline -ForegroundColor Yellow
+        Write-Progress -Activity "PowerPacker" -Status "Repairing script via $activeProvider..." -PercentComplete 85
+        
         $repairedCode = Invoke-LLMGenerate -Provider $activeProvider -ApiKey $activeApiKey -BaseUrl $activeBaseUrl -Model $activeModel -Metadata $metadata -Instructions $instructions -WingetData $wingetData -RepairErrors $validationResult.Errors
 
         $revalidationResult = Test-PSADTAst -ScriptCode $repairedCode
 
         if (-not $revalidationResult.IsValid) {
+            Write-Progress -Activity "PowerPacker" -Completed
             Write-Error "Repair loop failed AST validation."
             if (-not (Test-Path $OutDir)) { New-Item -Path $OutDir -ItemType Directory -Force | Out-Null }
             $failedPath = Join-Path $OutDir "Deploy-$($parsedData.winget_id).ps1.failed"
