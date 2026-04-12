@@ -91,6 +91,28 @@ Start-PowerPackerSandboxTest `
 
 The automated runner is host-orchestrated. It launches the `.wsb` with `WindowsSandbox.exe`, shares the package into the sandbox, runs the install and optional uninstall directly with `wsb exec -r System`, and writes `sandbox-test-result.json` plus `sandbox-launch.log` on the host. Networking is disabled by default; use `-EnableNetworking` only if the installer truly requires internet access.
 
+## Local Lab Testing (Alternative to Sandbox)
+
+If you cannot run Windows Sandbox (e.g., on Windows Home, or due to hardware virtualization issues), you can use the **Local Lab Runner**. This executes the package directly on your host machine in a temporary staging folder.
+
+> **Warning**: This is NOT isolated. The installer will modify your actual system. Only use this on a dedicated test VM or a machine you are comfortable re-imaging.
+
+```powershell
+Import-Module .\PowerPacker.psd1 -Force
+
+# 1. Create a local test workspace
+New-PowerPackerLocalTest `
+  -PackagePath .\Artifacts\GoLang.Go-sample `
+  -RunUninstall `
+  -Force
+
+# 2. Launch the test on the host
+Start-PowerPackerLocalTest `
+  -WorkspaceDirectory .\Build\LocalLab\GoLang.Go-sample
+```
+
+The results are saved to `Build\LocalLab\<package>\Results\local-test-result.json`, using the same format as the Sandbox runner.
+
 ## Architecture
 
 *   `AGENT_INSTRUCTIONS.md`: The universal "brain" and rulebook for the Agent.
@@ -99,6 +121,8 @@ The automated runner is host-orchestrated. It launches the `.wsb` with `WindowsS
 *   `Public/New-PowerPackerPackage.ps1`: The artifact builder that downloads PSADT and the target installer into a ready-to-run package.
 *   `Public/New-PowerPackerSandboxTest.ps1`: Creates a Windows Sandbox workspace and `.wsb` file for disposable package testing.
 *   `Public/Start-PowerPackerSandboxTest.ps1`: Launches the sandbox test workspace and optionally waits for the result JSON.
+*   `Public/New-PowerPackerLocalTest.ps1`: Creates a local lab workspace for testing directly on the host or a dedicated VM.
+*   `Public/Start-PowerPackerLocalTest.ps1`: Launches the local lab test and captures results from the host staging area.
 *   `.vscode/mcp.json.example`: An example MCP file retained for agents that prefer MCP-based package metadata lookup.
 
 ## Contributing

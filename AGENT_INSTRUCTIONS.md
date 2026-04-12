@@ -53,23 +53,22 @@ Once the script passes the AST validation:
 Inform the user of the generated script path and the final artifact folder, highlighting any specific install, uninstall, or detection logic you had to create.
 
 ## 6. Sandbox Validation
-If the user wants a disposable test environment:
-1. Create a Windows Sandbox workspace for the built package:
+If the user wants a disposable test environment and supports Windows Sandbox:
+...
+## 7. Local Host Validation (Alternative)
+If the user cannot use Windows Sandbox, use the Local Lab Runner:
+1. Create a local test workspace:
    ```powershell
    Import-Module .\PowerPacker.psd1 -Force
-   New-PowerPackerSandboxTest -PackagePath ".\Artifacts\<winget_id>" -RunUninstall -DisableVGpu -ShutdownWhenComplete -Force
+   New-PowerPackerLocalTest -PackagePath ".\Artifacts\<winget_id>" -RunUninstall -Force
    ```
-2. This generates:
-   - A `.wsb` file for manual launch and inspection
-   - A sandbox manifest describing the automated test commands
-   - A host-side results folder for the launch log and test summary JSON
-3. To launch the run and wait for results:
+2. Launch the test on the host:
    ```powershell
-   Start-PowerPackerSandboxTest -WorkspaceDirectory ".\Build\Sandbox\<winget_id>" -WaitForResult -BootstrapStepTimeoutSeconds 60
+   Start-PowerPackerLocalTest -WorkspaceDirectory ".\Build\LocalLab\<winget_id>"
    ```
-4. The runner will:
-   - Launch the generated `.wsb` with `WindowsSandbox.exe`
-   - Share the package into the sandbox with `wsb share`
-   - Execute install, optional uninstall, and optional probe commands directly with `wsb exec -r System`
-   - Write `sandbox-test-result.json` and `sandbox-launch.log` on the host
-5. Review `sandbox-test-result.json` and `sandbox-launch.log` under the workspace results folder before reporting success.
+3. The runner will:
+   - Stage the package to `C:\PowerPacker\LocalLab\<winget_id>`
+   - Execute install, optional uninstall, and probe commands directly on the host
+   - Write `local-test-result.json` and `local-launch.log` to the workspace Results folder
+   - Clean up the staging path (unless `-SkipCleanup` is used)
+4. Review the results before reporting success.

@@ -16,6 +16,7 @@ We have removed most of this complexity. The AI Agent now serves as the executio
 - [x] Maintained the strict PowerShell AST validator (`Test-PSADTAst.ps1`) for Agent self-correction.
 - [x] Added `New-PowerPackerPackage` to assemble a PSADT v4 template, generated entry script, and downloaded installer into a single artifact.
 - [x] Added Windows Sandbox workspace generation and launch helpers for disposable install/uninstall testing.
+- [x] Added **Local Lab Runner** as a zero-virtualization alternative for testing packages directly on the host or a dedicated VM.
 
 ## Architecture
 - **Framework Elements:**
@@ -24,11 +25,12 @@ We have removed most of this complexity. The AI Agent now serves as the executio
   - `Private/Test-PSADTAst.ps1` (Local Tool / Validation)
   - `.vscode/mcp.json.example` (Optional WinGet STDIO Integration)
   - `Public/New-PowerPackerPackage.ps1` (PSADT + installer artifact assembly)
-  - `Public/New-PowerPackerSandboxTest.ps1` and `Public/Start-PowerPackerSandboxTest.ps1` (sandbox test workspace + execution)
+  - `Public/New-PowerPackerSandboxTest.ps1` / `Public/Start-PowerPackerSandboxTest.ps1` (Sandbox testing)
+  - `Public/New-PowerPackerLocalTest.ps1` / `Public/Start-PowerPackerLocalTest.ps1` (Local host/lab testing)
 
 ## To-Do
 - [ ] Add more granular AST validation rules for complex registry detections.
 - [ ] Create a library of example definitions for complex installers (e.g., Python, Docker).
 - [ ] Refine `AGENT_INSTRUCTIONS.md` based on real-world Agent generation tests.
 - [ ] Add artifact compression/signing options for distribution workflows.
-- [ ] Expand sandbox assertions beyond install/uninstall exit-code validation with richer app-specific probes.
+- [ ] Expand sandbox/local assertions beyond install/uninstall exit-code validation with richer app-specific probes.
