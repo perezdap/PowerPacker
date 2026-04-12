@@ -18,11 +18,17 @@ PowerPacker follows a standard PowerShell module structure:
 - **Private**: Internal helper functions for Markdown parsing, LLM interaction, Winget data retrieval, and AST validation.
 - **Tests**: Comprehensive Pester tests for all components.
 
-## Prerequisites
+## WinGet MCP Integration
 
-- PowerShell 7.2 or higher.
-- A valid API key for OpenAI or Anthropic.
-- (Optional) A running Winget MCP server (defaults to `http://localhost:8080`).
+PowerPacker is designed to work seamlessly with the official **Windows Package Manager (WinGet) MCP Server**. This integration allows AI agents to intelligently discover packages and retrieve their metadata for script generation.
+
+### Setting up the WinGet MCP Server
+
+1. Ensure you have the latest version of the App Installer (WinGet).
+2. Find your MCP server path by running `winget mcp`.
+3. Configure your environment (e.g., VS Code) using the provided `.vscode/mcp.json`.
+
+The tool will automatically attempt to use `winget show` as a fallback if the MCP server is not reachable via its REST proxy, ensuring you always get the latest package information.
 
 ## Installation
 
