@@ -55,6 +55,12 @@ ELSE:
 ### 2. PSADT v4 Script Generation
 Generate a script that strictly adheres to **PSADT v4** syntax:
 - **Session Management**: Use `Open-ADTSession`, `Close-ADTSession`, and `$adtSession = @{}`.
+- **Entry Script Structure**: Always include a standard PSADT v4 `param()` block at the top. Use a safe module loading pattern to avoid "read-only" errors in persistent sessions:
+  ```powershell
+  $modulePath = Join-Path -Path $PSScriptRoot -ChildPath "PSAppDeployToolkit\PSAppDeployToolkit.psd1"
+  if (-not (Get-Module -Name PSAppDeployToolkit)) { Import-Module -Name $modulePath }
+  ```
+  Pass `@PSBoundParameters` to `Open-ADTSession`.
 - **Variable Definitions**: Define all paths and arguments as variables at the top of the `try` block.
 - **No Legacy Cmdlets**: Do NOT use v3 cmdlets. Use their v4 counterparts and correct parameter names:
   - `Execute-Process` -> `Start-ADTProcess` (Use `-ArgumentList`, not `-Arguments`)
@@ -65,6 +71,10 @@ Generate a script that strictly adheres to **PSADT v4** syntax:
   - `Write-Log` -> `Write-ADTLogEntry` (Use `-Message`, not `-LogMessage`)
 - **Parameter Strictness**: PSADT v4 validates that `-ArgumentList` is not null or empty. If no arguments are required, omit the parameter entirely rather than passing an empty string.
 - **Omaha "Silent" Variants**: Some vendors provide a `StandaloneSilentSetup.exe`. These often have silent/system-level defaults baked in. Adding redundant flags like `--install --silent` can trigger `0x80040c01` (invalidParameter). Test with minimal or no arguments first for these variants.
+- **Uninstall Resiliency**: Never hardcode version-specific paths for uninstalls (e.g., `\Application\1.2.3\setup.exe`).
+  - **Registry First**: Always attempt to retrieve the `UninstallString` from `HKLM` (and `HKCU` if scope is ambiguous).
+  - **Wildcard Fallback**: If the registry fails, use wildcards for versioned directories: `C:\Program Files\Vendor\App\*\Installer\setup.exe`.
+  - **Multi-Scope Check**: If a machine-wide uninstaller is missing, check `%LOCALAPPDATA%` as a fallback, especially for browsers.
 - **Dynamic Fallbacks**: Implement registry lookups for uninstalls if the `ProductCode` is missing.
 - **Robust Detection**: Prioritize registry checks or environment variables over hardcoded file paths. Use `Test-ADTRegistryValue` for registry-based detection.
 
@@ -112,6 +122,7 @@ Assemble the final package using the `New-PowerPackerPackage` cmdlet.
 - **Zero Placeholders**: Never use `{GUID-HERE}` or placeholder paths. If you lack information, perform a search or ask for clarification.
 - **Common Omaha Exit Codes**: For Omaha-based installers (Chrome, Brave, Edge), handle these exit codes:
   - `0` = Success
+  - `20` = Success (Often returned by uninstaller when cleanup is deferred or partial)
   - `2147747880` (0x80040c08) = alreadyInstalled (treat as success)
   - `2147747867` (0x80040bfb) = alreadyRunning (treat as success)
   - `2147748865` (0x80040c01) = invalidParameter (usually means wrong scope/elevation)
