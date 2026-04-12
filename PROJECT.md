@@ -11,6 +11,8 @@ Build a native PowerShell tool called "PowerPacker" that generates PSADT v4 depl
 - [x] Implement `Get-WingetMcpData`
 - [x] Implement `Invoke-LLMGenerate`
 - [x] Implement `Build-PowerPackerPackage`
+- [x] Created comprehensive `README.md`
+- [x] Initialized `feature/readme-and-docs` branch
 
 ## Lessons Learned
 *(To be populated as development progresses)*
