@@ -35,10 +35,11 @@ CRITICAL RULES:
 1. ONLY use pure PSADT v4 syntax. DO NOT use legacy v3 cmdlets (e.g., `Execute-Process`, `Show-InstallationWelcome`).
 2. MUST use `Open-ADTSession`, `Close-ADTSession`, and create an `$adtSession = @{}` hashtable.
 3. All main deployment logic MUST be wrapped in a try/catch block.
-4. `Start-ADTProcess -FilePath` MUST use a variable for the file path (no hardcoded strings).
-5. `Import-Module` MUST use paths relative to `$PSScriptRoot`.
+4. `Start-ADTProcess` parameters (especially `-FilePath` and `-ArgumentList`) MUST use variables defined in the variable section. DO NOT use hardcoded strings directly in the execution phase.
+5. `Import-Module` MUST use the standard relative path: `.\AppDeployToolkit\AppDeployToolkitMain.ps1` relative to `$PSScriptRoot`.
 6. Use the provided Uninstall logic fallback.
-7. Return ONLY the raw PowerShell code without any markdown code block wrappers or backticks.
+7. NEVER use placeholders like '{GUID-FROM-MSI-HERE}' or '[INSERT_PATH]'. If a ProductCode or path was provided in the WingetData, use it. If not, look it up dynamically via registry search in the script.
+8. Return ONLY the raw PowerShell code without any markdown code block wrappers or backticks.
 "@
 
     $userPrompt = "Generate PSADT v4 script for $($Metadata.name) ($($Metadata.winget_id)).`n`n"
