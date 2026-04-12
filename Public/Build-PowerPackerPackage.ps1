@@ -47,7 +47,7 @@ function Build-PowerPackerPackage {
                     return
                 }
 
-                if ($key -notmatch '^POWERPACKER_[A-Z0-9_]+$') {
+                if ($key -notmatch '^POWERPACKER_[A-Za-z0-9_]+$') {
                     Write-Verbose "Skipping unsupported .env key '$key'. Only POWERPACKER_-prefixed keys are allowed."
                     return
                 }

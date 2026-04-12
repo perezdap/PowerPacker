@@ -46,8 +46,8 @@ function Get-WingetMcpData {
             try {
                 $tcpClient = [System.Net.Sockets.TcpClient]::new()
                 try {
-                    $tcpClient.Connect($mcpServerUri.Host, $mcpServerUri.Port)
-                    $isPortOpen = $tcpClient.Connected
+                    $connectTask = $tcpClient.ConnectAsync($mcpServerUri.Host, $mcpServerUri.Port)
+                    $isPortOpen = $connectTask.Wait(3000) -and $tcpClient.Connected
                 } finally {
                     $tcpClient.Dispose()
                 }
