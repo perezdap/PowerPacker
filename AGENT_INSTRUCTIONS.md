@@ -10,6 +10,7 @@ Your goal is to autonomously generate, validate, and assemble ready-to-run deplo
 
 ### 1. Research & Metadata Discovery
 - **Parse the Definition**: Read the `.md` file in `Definitions/` to understand the intent.
+- **Section Parsing**: Be aware that the definition may contain any of the following headers: `Pre-Install`, `Install`, `Post-Install`, `Pre-Uninstall`, `Uninstall`, `Post-Uninstall`, and `Detection`. Map these to the corresponding PSADT v4 execution logic.
 - **Consult WinGet**: Use the WinGet MCP to retrieve `ProductCode`, `InstallerUrl`, `InstallerType`, and silent arguments. If the `winget_id` in the definition is missing or incorrect, search for the correct one and notify the user.
 
 ### 2. PSADT v4 Script Generation

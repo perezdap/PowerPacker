@@ -17,18 +17,31 @@ The Human provides the **Intent**; the Agent provides the **Engine**.
 ## 🕹️ The Human-in-the-Loop Workflow
 
 ### 1. Define the Intent
-Create a simple Markdown file in the `Definitions/` folder. This is your only manual task.
+Create a simple Markdown file in the `Definitions/` folder. This is your primary manual task. You can use any of the following standard PSADT v4 sections:
 
-**Example: `Definitions/7zip.md`**
+- `# Pre-Install` / `# Post-Install`
+- `# Install`
+- `# Pre-Uninstall` / `# Post-Uninstall`
+- `# Uninstall`
+- `# Detection`
+
+**Example: `Definitions/firefox.md`**
 ```markdown
 ---
-winget_id: 7zip.7zip
-name: 7-Zip
+winget_id: Mozilla.Firefox
+name: Mozilla Firefox
 ---
+## Pre-Install
+Close Firefox if it is currently running.
+
 ## Install
-Install 7-zip MSI silently.
+Install Firefox using the silent installer.
+
+## Post-Install
+Remove the Desktop shortcut created by the installer.
+
 ## Detection
-Check for 7z.exe in Program Files.
+Check for firefox.exe in the Program Files directory.
 ```
 
 ### 2. Prompt the Agent
