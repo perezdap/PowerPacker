@@ -42,20 +42,15 @@ function Get-WingetMcpData {
     }
 
     if ($mcpServerUri) {
-        if ($IsLinux -or $IsMacOS) {
-            try {
-                $tcpClient = [System.Net.Sockets.TcpClient]::new()
-                try {
-                    $connectTask = $tcpClient.ConnectAsync($mcpServerUri.Host, $mcpServerUri.Port)
-                    $isPortOpen = $connectTask.Wait(3000) -and $tcpClient.Connected
-                } finally {
-                    $tcpClient.Dispose()
-                }
-            } catch {
-                $isPortOpen = $false
-            }
-        } else {
-            $isPortOpen = [bool](Get-Command Test-NetConnection -ErrorAction SilentlyContinue) -and (Test-NetConnection -ComputerName $mcpServerUri.Host -Port $mcpServerUri.Port -InformationLevel Quiet)
+        # Use a fast TcpClient check with a short timeout (500ms) to avoid hanging
+        try {
+            $tcpClient = [System.Net.Sockets.TcpClient]::new()
+            $connectTask = $tcpClient.ConnectAsync($mcpServerUri.Host, $mcpServerUri.Port)
+            $isPortOpen = $connectTask.Wait(500) -and $tcpClient.Connected
+            if ($tcpClient.Connected) { $tcpClient.Close() }
+            $tcpClient.Dispose()
+        } catch {
+            $isPortOpen = $false
         }
     }
 
