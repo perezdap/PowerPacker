@@ -25,7 +25,20 @@ Create a simple Markdown file in the `Definitions/` folder. This is your primary
 - `# Uninstall`
 - `# Detection`
 
-**Example: `Definitions/firefox.md`**
+#### Scope Preference (Optional)
+By default, the Agent will attempt to find a **machine-scope** installer suitable for remote/SYSTEM deployment. If you specifically need a **user-scope** install (e.g., per-user application that shouldn't require admin rights), add this to your definition:
+
+```yaml
+---
+winget_id: Vendor.AppName
+name: Application Name
+scope: user
+---
+```
+
+**Note:** User-scope applications (like Chrome, Brave, Edge) often cannot be deployed remotely via SCCM/Intune running as SYSTEM. The Agent will warn you if this limitation applies.
+
+**Example: `Definitions/firefox.md` - Installation & Uninstall**
 ```markdown
 ---
 winget_id: Mozilla.Firefox
@@ -40,8 +53,37 @@ Install Firefox using the silent installer.
 ## Post-Install
 Remove the Desktop shortcut created by the installer.
 
+## Uninstall
+Uninstall Firefox using the system's uninstall command.
+
 ## Detection
 Check for firefox.exe in the Program Files directory.
+```
+
+#### Writing the Uninstall Section
+When defining the uninstall process, provide clear instructions for the Agent:
+
+- **Silent Uninstall**: Specify if the uninstall should run silently (e.g., "Uninstall using silent arguments")
+- **Custom Actions**: Note any pre-uninstall tasks (close applications, stop services) or post-uninstall cleanup
+- **Registry Fallback**: If the ProductCode is unknown, mention that a registry lookup should be used to find the uninstall string
+
+**Example: `Definitions/7zip.md` - Uninstall Focus**
+```markdown
+---
+winget_id: 7zip.7zip
+name: 7-Zip
+---
+## Install
+Install 7-Zip using the MSI installer.
+
+## Uninstall
+Uninstall 7-Zip using the MSI ProductCode with silent arguments.
+If ProductCode is unavailable, look up the uninstall string from the registry under:
+- `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\`
+- `HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\`
+
+## Detection
+Verify by checking if 7z.exe exists in the installation directory or via the registry ProductCode.
 ```
 
 ### 2. Prompt the Agent

@@ -13,3 +13,6 @@ Remove the Desktop shortcut created by the installer.
 
 ## Detection
 Check for brave installation by checking the registry for an unintstall string.
+
+## Uninstall
+Uninstall Brave using the system's uninstall command.
