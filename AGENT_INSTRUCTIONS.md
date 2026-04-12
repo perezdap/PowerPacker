@@ -56,12 +56,15 @@ ELSE:
 Generate a script that strictly adheres to **PSADT v4** syntax:
 - **Session Management**: Use `Open-ADTSession`, `Close-ADTSession`, and `$adtSession = @{}`.
 - **Variable Definitions**: Define all paths and arguments as variables at the top of the `try` block.
-- **No Legacy Cmdlets**: Do NOT use v3 cmdlets. Use their v4 counterparts:
-  - `Execute-Process` -> `Start-ADTProcess`
-  - `Show-InstallationWelcome` -> `Show-ADTInstallationWelcome`
+- **No Legacy Cmdlets**: Do NOT use v3 cmdlets. Use their v4 counterparts and correct parameter names:
+  - `Execute-Process` -> `Start-ADTProcess` (Use `-ArgumentList`, not `-Arguments`)
+  - `Show-InstallationWelcome` -> `Show-ADTInstallationWelcome` (Use `-CloseProcesses`, not `-CloseApps`)
   - `Show-InstallationPrompt` -> `Show-ADTInstallationPrompt`
   - `Get-RegistryKey` -> `Get-ADTRegistryKey`
   - `Test-RegistryValue` -> `Test-ADTRegistryValue`
+  - `Write-Log` -> `Write-ADTLogEntry` (Use `-Message`, not `-LogMessage`)
+- **Parameter Strictness**: PSADT v4 validates that `-ArgumentList` is not null or empty. If no arguments are required, omit the parameter entirely rather than passing an empty string.
+- **Omaha "Silent" Variants**: Some vendors provide a `StandaloneSilentSetup.exe`. These often have silent/system-level defaults baked in. Adding redundant flags like `--install --silent` can trigger `0x80040c01` (invalidParameter). Test with minimal or no arguments first for these variants.
 - **Dynamic Fallbacks**: Implement registry lookups for uninstalls if the `ProductCode` is missing.
 - **Robust Detection**: Prioritize registry checks or environment variables over hardcoded file paths. Use `Test-ADTRegistryValue` for registry-based detection.
 

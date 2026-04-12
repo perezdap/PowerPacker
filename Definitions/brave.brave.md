@@ -12,7 +12,10 @@ Install Brave using the silent installer.
 Remove the Desktop shortcut created by the installer.
 
 ## Detection
-Check for brave installation by checking the registry for an unintstall string.
+Check for Brave installation by checking the registry for the machine-wide uninstall entry.
+Registry Key: `HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\BraveSoftware Brave-Browser`
+(or `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\BraveSoftware Brave-Browser` on 32-bit)
 
 ## Uninstall
-Uninstall Brave using the system's uninstall command.
+Uninstall Brave using the machine-wide uninstall command:
+`"C:\Program Files\BraveSoftware\Brave-Browser\Application\1.89.132\Installer\setup.exe" --uninstall --system-level --force-uninstall`

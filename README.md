@@ -25,18 +25,13 @@ Create a simple Markdown file in the `Definitions/` folder. This is your primary
 - `# Uninstall`
 - `# Detection`
 
-#### Scope Preference (Optional)
-By default, the Agent will attempt to find a **machine-scope** installer suitable for remote/SYSTEM deployment. If you specifically need a **user-scope** install (e.g., per-user application that shouldn't require admin rights), add this to your definition:
+#### Scope Preference (Critical)
+By default, the Agent will attempt to find a **machine-scope** installer suitable for remote/SYSTEM deployment. 
 
-```yaml
----
-winget_id: Vendor.AppName
-name: Application Name
-scope: user
----
-```
+- **Machine Scope (`scope: machine`)**: Installs to `Program Files`. The default and recommended for enterprise deployment.
+- **User Scope (`scope: user`)**: Installs to `%LOCALAPPDATA%`. Only use if specifically requested.
 
-**Note:** User-scope applications (like Chrome, Brave, Edge) often cannot be deployed remotely via SCCM/Intune running as SYSTEM. The Agent will warn you if this limitation applies.
+**Omaha Application Warning**: Google Omaha-based apps (Brave, Chrome, Edge) are highly sensitive to scope. If you request a **user-scope** install but run it as an Administrator, the installation will likely fail with error `0x80040c01`. The Agent is instructed to prefer **Standalone machine-wide installers** for these apps to ensure reliable deployment.
 
 **Example: `Definitions/firefox.md` - Installation & Uninstall**
 ```markdown
