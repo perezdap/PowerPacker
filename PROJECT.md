@@ -1,37 +1,28 @@
 # PowerPacker Project Status
 
 ## Objective
-Build a native PowerShell tool called "PowerPacker" that generates PSADT v4 deployment scripts from Markdown definitions, using an LLM for generation and the native PowerShell AST for strict validation.
+Evolve PowerPacker into an **Agent-Native Framework** that leverages the intelligence of AI Agents (e.g., Gemini CLI) via MCP integrations to autonomously generate, validate, and repair **PSADT v4** deployment scripts from simple Markdown definitions.
+
+## Pivot (Agent-Native Paradigm)
+The project originally began as a heavy PowerShell orchestrator that manually queried LLM APIs (`Invoke-LLMGenerate`), managed API keys, and wrapped WinGet CLI (`Get-WingetMcpData`). 
+
+We have removed all this complexity. The AI Agent now serves as the execution engine, utilizing its native tool-use capabilities to query the WinGet MCP directly and run the local AST validator (`Test-PSADTAst.ps1`) to double-check its own code.
 
 ## Status
-- [x] Initialized PROJECT.md
-- [x] Initialize Module Structure
-- [x] Implement `Parse-PackageMd`
-- [x] Implement `Test-PSADTAst`
-- [x] Implement `Get-WingetMcpData`
-- [x] Implement `Invoke-LLMGenerate`
-- [x] Implement `Build-PowerPackerPackage`
-- [x] Created comprehensive `README.md`
-- [x] Initialized `feature/readme-and-docs` branch
-- [x] Updated `Get-WingetMcpData` for real WinGet CLI fallback and MCP server pathing.
-- [x] Implemented automated environment setup via `Set-Up.ps1`.
-- [x] Secured `mcp.json` by moving it to `.gitignore` and providing a template.
-- [x] Improved `Build-PowerPackerPackage` to automatically load credentials from `.env`.
-- [x] Implemented `Definitions` folder support and default path resolution.
-- [x] Created `Update-PowerPackerDefinition` to sync Markdown metadata with WinGet.
+- [x] Deleted legacy API orchestration (`Build-PowerPackerPackage.ps1`, `Invoke-LLMGenerate.ps1`).
+- [x] Deleted legacy data collection (`Get-WingetMcpData.ps1`).
+- [x] Drafted universal `AGENT_INSTRUCTIONS.md` containing strict PSADT v4 syntax rules and the Agent Workflow.
+- [x] Rewrote `README.md` to reflect the new framework architecture.
+- [x] Maintained the strict PowerShell AST validator (`Test-PSADTAst.ps1`) for Agent self-correction.
 
-## Lessons Learned
-*(To be populated as development progresses)*
-
-## Coding Practices
-- Language: Pure PowerShell (no Python dependencies).
-- Architecture: PowerShell Module structure (`Public`, `Private`, `Tests`).
-- Validation Engine: Use `[System.Management.Automation.Language.Parser]` for AST analysis.
-- Methodology: Red/Green Test-Driven Development (TDD) using Pester.
-- API: LLM Integration via `Invoke-RestMethod` (Anthropic/OpenAI).
+## Architecture
+- **Framework Elements:**
+  - `AGENT_INSTRUCTIONS.md` (System Prompt / Rules)
+  - `Definitions/` (Markdown Intent)
+  - `Private/Test-PSADTAst.ps1` (Local Tool / Validation)
+  - `.vscode/mcp.json.example` (WinGet STDIO Integration)
 
 ## To-Do
-- [x] Setup Pester scaffolding.
-- [x] Develop AST rules for PSADT v4 enforcement.
-- [x] Create mock Winget MCP server interaction.
-- [x] Construct comprehensive prompt engineering for PSADT v4 syntax.
+- [ ] Add more granular AST validation rules for complex registry detections.
+- [ ] Create a library of example definitions for complex installers (e.g., Python, Docker).
+- [ ] Refine `AGENT_INSTRUCTIONS.md` based on real-world Agent generation tests.
