@@ -50,6 +50,54 @@ Describe "Invoke-LLMGenerate" {
         $result | Should -Be "Write-Host 'Test'"
     }
 
+    It "Should use provided BaseUrl and Model when constructing the OpenAI request" {
+        $capturedUri = $null
+        $capturedBody = $null
+        Mock Invoke-RestMethod {
+            $script:capturedUri = $Uri
+            $script:capturedBody = $Body
+            return [pscustomobject]@{
+                choices = @(
+                    [pscustomobject]@{
+                        message = [pscustomobject]@{ content = 'Generated' }
+                    }
+                )
+            }
+        }
+
+        $metadata = @{ winget_id = 'Test.App'; name = 'Test App' }
+        $instructions = @{ Install = 'Install-App'; Uninstall = 'Uninstall-App'; Detection = 'Detect-App' }
+        $wingetData = [pscustomobject]@{ UninstallLogic = '# uninstall logic' }
+
+        $result = Invoke-LLMGenerate -Provider 'OpenAI' -ApiKey 'fake-key' -BaseUrl 'https://my-proxy.example.com/v1/' -Model 'gpt-custom' -Metadata $metadata -Instructions $instructions -WingetData $wingetData
+
+        $result | Should -Be 'Generated'
+        $script:capturedUri | Should -Be 'https://my-proxy.example.com/v1/chat/completions'
+        $bodyObj = $script:capturedBody | ConvertFrom-Json
+        $bodyObj.model | Should -Be 'gpt-custom'
+    }
+
+    It "Should trim trailing slash from BaseUrl for Anthropic" {
+        $capturedUri = $null
+        Mock Invoke-RestMethod {
+            $script:capturedUri = $Uri
+            return [pscustomobject]@{
+                content = @(
+                    [pscustomobject]@{ text = 'Generated' }
+                )
+            }
+        }
+
+        $metadata = @{ winget_id = 'Test.App'; name = 'Test App' }
+        $instructions = @{ Install = 'Install-App'; Uninstall = 'Uninstall-App'; Detection = 'Detect-App' }
+        $wingetData = [pscustomobject]@{ UninstallLogic = '# uninstall logic' }
+
+        $result = Invoke-LLMGenerate -Provider 'Anthropic' -ApiKey 'fake-key' -BaseUrl 'https://my-proxy.example.com/v1/' -Model 'claude-custom' -Metadata $metadata -Instructions $instructions -WingetData $wingetData
+
+        $result | Should -Be 'Generated'
+        $script:capturedUri | Should -Be 'https://my-proxy.example.com/v1/messages'
+    }
+
     It "Should include repair errors in prompt if provided" {
         Mock Invoke-RestMethod {
             # Assert that the body contains the error

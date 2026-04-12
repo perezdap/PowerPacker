@@ -30,7 +30,36 @@ function Get-WingetMcpData {
     }
 
     # 2. Try the MCP REST API if provided (supports existing mock/proxy setups)
-    if ($McpServerUrl -and ($McpServerUrl -ne "http://localhost:8080" -or (Test-NetConnection -ComputerName "localhost" -Port 8080 -InformationLevel Quiet))) {
+    # Use a cross-platform TCP check to determine whether the MCP endpoint is reachable.
+    $isPortOpen = $false
+    $mcpServerUri = $null
+    if ($McpServerUrl) {
+        try {
+            $mcpServerUri = [System.Uri]$McpServerUrl
+        } catch {
+            $mcpServerUri = $null
+        }
+    }
+
+    if ($mcpServerUri) {
+        if ($IsLinux -or $IsMacOS) {
+            try {
+                $tcpClient = [System.Net.Sockets.TcpClient]::new()
+                try {
+                    $connectTask = $tcpClient.ConnectAsync($mcpServerUri.Host, $mcpServerUri.Port)
+                    $isPortOpen = $connectTask.Wait(3000) -and $tcpClient.Connected
+                } finally {
+                    $tcpClient.Dispose()
+                }
+            } catch {
+                $isPortOpen = $false
+            }
+        } else {
+            $isPortOpen = [bool](Get-Command Test-NetConnection -ErrorAction SilentlyContinue) -and (Test-NetConnection -ComputerName $mcpServerUri.Host -Port $mcpServerUri.Port -InformationLevel Quiet)
+        }
+    }
+
+    if ($McpServerUrl -and ($McpServerUrl -ne "http://localhost:8080" -or $isPortOpen)) {
         try {
             Write-Verbose "Calling WinGet MCP REST endpoint at $McpServerUrl for $WingetId"
             $mcpUri = "$McpServerUrl/api/winget/$WingetId"

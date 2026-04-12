@@ -90,6 +90,140 @@ Close-ADTSession
          Remove-Item -Path $outDir -Recurse -Force
     }
 
+    It "Should load LlmProvider and LlmApiKey from a .env file when parameters are omitted" {
+        $tempMd = New-TemporaryFile
+        $mockContent = @"
+---
+winget_id: Env.App
+name: EnvApp
+---
+## Install
+## Uninstall
+"@
+        Set-Content -Path $tempMd.FullName -Value $mockContent
+
+        $tempEnv = New-TemporaryFile
+        Set-Content -Path $tempEnv.FullName -Value @"
+POWERPACKER_LLM_PROVIDER=OpenAI
+POWERPACKER_LLM_API_KEY=env-api-key
+"@
+
+        $outDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "PowerPackerOutEnv"
+
+        Mock Get-WingetMcpData { return [pscustomobject]@{ UninstallLogic = "mocked" } }
+
+        $capturedProvider = $null
+        $capturedApiKey = $null
+        Mock Invoke-LLMGenerate {
+            $script:capturedProvider = $Provider
+            $script:capturedApiKey = $ApiKey
+            return @"
+`$adtSession = @{ Test = 'Value' }
+Open-ADTSession
+try { `$file = 'setup.exe'; Start-ADTProcess -FilePath `$file } catch {}
+Close-ADTSession
+"@
+        }
+
+        $result = Build-PowerPackerPackage -MarkdownPath $tempMd.FullName -OutDir $outDir -EnvPath $tempEnv.FullName
+
+        $result.Success | Should -Be $true
+        $script:capturedProvider | Should -Be 'OpenAI'
+        $script:capturedApiKey | Should -Be 'env-api-key'
+
+        Remove-Item -Path $tempMd.FullName -Force
+        Remove-Item -Path $tempEnv.FullName -Force
+        Remove-Item -Path $outDir -Recurse -Force
+    }
+
+    It "Should prefer explicit parameters over .env values" {
+        $tempMd = New-TemporaryFile
+        $mockContent = @"
+---
+winget_id: Override.App
+name: OverrideApp
+---
+## Install
+## Uninstall
+"@
+        Set-Content -Path $tempMd.FullName -Value $mockContent
+
+        $tempEnv = New-TemporaryFile
+        Set-Content -Path $tempEnv.FullName -Value @"
+POWERPACKER_LLM_PROVIDER=Anthropic
+POWERPACKER_LLM_API_KEY=env-key-should-not-be-used
+"@
+
+        $outDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "PowerPackerOutOverride"
+
+        Mock Get-WingetMcpData { return [pscustomobject]@{ UninstallLogic = "mocked" } }
+
+        $capturedProvider = $null
+        $capturedApiKey = $null
+        Mock Invoke-LLMGenerate {
+            $script:capturedProvider = $Provider
+            $script:capturedApiKey = $ApiKey
+            return @"
+`$adtSession = @{ Test = 'Value' }
+Open-ADTSession
+try { `$file = 'setup.exe'; Start-ADTProcess -FilePath `$file } catch {}
+Close-ADTSession
+"@
+        }
+
+        $result = Build-PowerPackerPackage -MarkdownPath $tempMd.FullName -OutDir $outDir -LlmProvider 'OpenAI' -LlmApiKey 'explicit-key' -EnvPath $tempEnv.FullName
+
+        $result.Success | Should -Be $true
+        $script:capturedProvider | Should -Be 'OpenAI'
+        $script:capturedApiKey | Should -Be 'explicit-key'
+
+        Remove-Item -Path $tempMd.FullName -Force
+        Remove-Item -Path $tempEnv.FullName -Force
+        Remove-Item -Path $outDir -Recurse -Force
+    }
+
+    It "Should ignore .env keys that are not POWERPACKER_-prefixed" {
+        $tempMd = New-TemporaryFile
+        $mockContent = @"
+---
+winget_id: Safe.App
+name: SafeApp
+---
+## Install
+## Uninstall
+"@
+        Set-Content -Path $tempMd.FullName -Value $mockContent
+
+        $tempEnv = New-TemporaryFile
+        Set-Content -Path $tempEnv.FullName -Value @"
+PATH=/some/injected/path
+POWERPACKER_LLM_PROVIDER=OpenAI
+POWERPACKER_LLM_API_KEY=safe-key
+"@
+
+        $outDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "PowerPackerOutSafe"
+        $originalPath = $env:PATH
+
+        Mock Get-WingetMcpData { return [pscustomobject]@{ UninstallLogic = "mocked" } }
+        Mock Invoke-LLMGenerate {
+            return @"
+`$adtSession = @{ Test = 'Value' }
+Open-ADTSession
+try { `$file = 'setup.exe'; Start-ADTProcess -FilePath `$file } catch {}
+Close-ADTSession
+"@
+        }
+
+        $result = Build-PowerPackerPackage -MarkdownPath $tempMd.FullName -OutDir $outDir -EnvPath $tempEnv.FullName
+
+        $result.Success | Should -Be $true
+        $env:PATH | Should -Be $originalPath
+
+        Remove-Item -Path $tempMd.FullName -Force
+        Remove-Item -Path $tempEnv.FullName -Force
+        Remove-Item -Path $outDir -Recurse -Force
+    }
+
     It "Should fail if repair also fails AST validation" {
          $tempMd = New-TemporaryFile
          $mockContent = @"

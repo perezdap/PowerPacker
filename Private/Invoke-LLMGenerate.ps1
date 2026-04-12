@@ -18,7 +18,13 @@ function Invoke-LLMGenerate {
         [pscustomobject]$WingetData,
 
         [Parameter(Mandatory=$false)]
-        [string[]]$RepairErrors
+        [string[]]$RepairErrors,
+
+        [Parameter(Mandatory=$false)]
+        [string]$BaseUrl,
+
+        [Parameter(Mandatory=$false)]
+        [string]$Model
     )
 
     $systemPrompt = @"
@@ -50,13 +56,14 @@ CRITICAL RULES:
 
     try {
         if ($Provider -eq 'OpenAI') {
-            $uri = 'https://api.openai.com/v1/chat/completions'
+            $uri = if ([string]::IsNullOrWhiteSpace($BaseUrl)) { 'https://api.openai.com/v1/chat/completions' } else { "$($BaseUrl.TrimEnd('/'))/chat/completions" }
             $headers = @{
                 "Authorization" = "Bearer $ApiKey"
                 "Content-Type" = "application/json"
             }
+            $activeModel = if ([string]::IsNullOrWhiteSpace($Model)) { "gpt-4" } else { $Model }
             $body = @{
-                model = "gpt-4"
+                model = $activeModel
                 messages = @(
                     @{ role = "system"; content = $systemPrompt },
                     @{ role = "user"; content = $userPrompt }
@@ -67,14 +74,15 @@ CRITICAL RULES:
             $generatedCode = $response.choices[0].message.content
         } else {
             # Anthropic integration (simplified for example)
-            $uri = 'https://api.anthropic.com/v1/messages'
+            $uri = if ([string]::IsNullOrWhiteSpace($BaseUrl)) { 'https://api.anthropic.com/v1/messages' } else { "$($BaseUrl.TrimEnd('/'))/messages" }
             $headers = @{
                 "x-api-key" = $ApiKey
                 "anthropic-version" = "2023-06-01"
                 "Content-Type" = "application/json"
             }
+            $activeModel = if ([string]::IsNullOrWhiteSpace($Model)) { "claude-3-opus-20240229" } else { $Model }
             $body = @{
-                model = "claude-3-opus-20240229"
+                model = $activeModel
                 max_tokens = 4096
                 system = $systemPrompt
                 messages = @(
