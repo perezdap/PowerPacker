@@ -9,7 +9,9 @@ function Get-WingetPackageMetadata {
         [string]$Source,
         [string]$Architecture,
         [string]$InstallerType,
-        [string]$Locale
+        [string]$Locale,
+        [ValidateSet('user', 'machine')]
+        [string]$Scope
     )
 
     $resolvedId = Resolve-WingetPackageId -Id $Id -Name $Name -Source $Source
@@ -30,6 +32,9 @@ function Get-WingetPackageMetadata {
     }
     if ($Locale) {
         $arguments += @('--locale', $Locale)
+    }
+    if ($Scope) {
+        $arguments += @('--scope', $Scope)
     }
 
     $output = & winget @arguments 2>&1 | Out-String
@@ -53,5 +58,6 @@ function Get-WingetPackageMetadata {
         InstallerSha256  = $parsed.Installer.Sha256
         ReleaseDate      = $parsed.Installer.ReleaseDate
         RequestedVersion = $Version
+        RequestedScope   = $Scope
     }
 }

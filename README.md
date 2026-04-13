@@ -87,10 +87,7 @@ Tell the agent to pack the application. It will handle metadata lookup, script g
 > **Prompt:** *"Pack 7zip.7zip based on the definition."*
 
 ### 3. Verify the Artifact
-Once the Agent finishes, it will create an artifact in the `Artifacts/` folder. You can now test it locally or in a sandbox.
-
-#### Option A: Local Lab (Direct Host)
-Navigate to the artifact folder and run the entry script with PowerShell:
+Once the Agent finishes, it will create an artifact in the `Artifacts/` folder. Test the package by running the standard PSADT entry script from the artifact directory:
 
 ```powershell
 cd .\Artifacts\VSCodium.VSCodium
@@ -101,16 +98,23 @@ cd .\Artifacts\VSCodium.VSCodium
 .\Invoke-AppDeployToolkit.ps1 -DeploymentType Uninstall -DeployMode Interactive
 ```
 
-#### Option B: Windows Sandbox (Isolated)
-If you want to test in a clean environment, you can use the `New-PowerPackerSandbox.wsb` (if provided) or simply copy the artifact folder into a Windows Sandbox instance and run the same commands as above.
+> **Tip**: Since artifacts are standard PSADT v4 packages, you can use all standard PSADT parameters like `-DeployMode Silent`, `-DeployMode Interactive`, or `-AllowRebootPassThru`.
 
-> **Tip**: Since artifacts are standard PSADT v4 packages, you can use all standard PSADT parameters like `-DeployMode Silent` or `-AllowRebootPassThru`.
+---
+
+## ⚠️ Recent Pitfalls
+
+- **Keep WinGet scope consistent**: If the package is intended for machine deployment, the Agent should use the same scope for both metadata lookup and installer download. Querying `winget show` without `--scope machine` and then downloading with `--scope machine` can produce mismatched metadata in `artifact-metadata.json`.
+- **Verify artifact metadata against the downloaded installer**: After packaging, compare the installer filename in `Files/`, the saved WinGet manifest, and `SupportFiles\PowerPacker\artifact-metadata.json`. The URL, SHA256, and scope should all describe the same installer variant.
+- **Current AST validator prefers a simple top-level pattern**: The validator currently expects `Open-ADTSession`, then a top-level `try/catch`, then `Close-ADTSession`. Until that rule changes, scripts that move `Close-ADTSession` into `finally` may fail validation even if they are otherwise reasonable.
+- **Do not treat `Build/` as a source-of-truth folder**: Reusable deploy scripts should live in a tracked folder, not an ignored scratch directory. This repo now uses `Examples\DeployScripts\` for committed reference scripts.
 
 ---
 
 ## 📂 Project Structure
 *   `Definitions/`: Human-written application requirements.
 *   `Artifacts/`: Agent-generated, ready-to-run PSADT packages.
+*   `Examples/DeployScripts/`: Tracked reference deploy scripts worth reusing or adapting.
 *   `AGENT_INSTRUCTIONS.md`: The rulebook you must feed to your AI Agent.
 *   `Private/`: Internal tools (AST Validators, Parsers) used by the Agent.
 *   `Public/`: Core cmdlets like `New-PowerPackerPackage`.

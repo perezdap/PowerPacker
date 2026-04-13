@@ -51,6 +51,7 @@ ELSE:
 ```
 
 **Consult WinGet**: Use the WinGet MCP to retrieve `ProductCode`, `InstallerUrl`, `InstallerType`, and silent arguments. If the `winget_id` in the definition is missing or incorrect, search for the correct one and notify the user.
+- **Scope Consistency Rule**: If package assembly will use `-Scope machine` or `-Scope user`, pass the same scope to both `winget show` and `winget download`. Do not query metadata unscoped and then download with scope. That mismatch can produce a correct installer in `Files\` but the wrong `InstallerUrl` and `InstallerSha256` in `artifact-metadata.json`. VS Code is a confirmed example: `winget show --scope user` returns `VSCodeUserSetup`, while `winget show --scope machine` returns `VSCodeSetup`.
 
 ### 2. PSADT v4 Script Generation
 Generate a script that strictly adheres to **PSADT v4** syntax:
@@ -103,16 +104,29 @@ Before delivering any script or artifact, you MUST:
 1. **AST Validation**: Run `Private/Test-PSADTAst.ps1` against your generated code. 
    - **Pro-Tip**: Use a unique variable name for your script code (e.g., `$myScriptCode`) to avoid collision with the validator's internal variables when dot-sourcing.
    - **Pro-Tip**: Ensure `Start-ADTProcess -FilePath` always uses a variable.
+   - **Validator Quirk**: The current AST rule expects a top-level `try/catch` between `Open-ADTSession` and `Close-ADTSession`. Until the validator is changed, prefer `Close-ADTSession` after the `catch` block rather than inside `finally`, even though `finally` would normally be the cleaner pattern.
 2. **Framework Testing (If modifying framework code)**: If you are asked to update PowerPacker's own `.ps1` files, you MUST run the corresponding Pester tests in `Tests/` and ensure they pass.
 3. **Clean Environment**: Do NOT leave temporary test scripts or WinGet downloads in the project root. Perform all work in `Artifacts/` or use the `New-PowerPackerPackage` cmdlet which handles directory management.
-4. **Testing Instructions**: When asked how to test a package, instruct the user to navigate to the artifact directory and run the `Invoke-AppDeployToolkit.ps1` script with the desired `-DeploymentType` (Install/Uninstall).
+   - **Tracked Script Rule**: Do not rely on a repo-level `Build\` scratch folder for reusable scripts. If a deploy script is worth keeping for future work, store it in `Examples\DeployScripts\` so it is versioned.
+4. **Testing Instructions**: When asked how to test a package, instruct the user to navigate to the artifact directory and run the `Invoke-AppDeployToolkit.ps1` script with the desired `-DeploymentType` (Install/Uninstall). Prefer standard PSADT execution from the built artifact over custom sandbox or local-lab wrappers unless the project explicitly reintroduces them.
 
 ### 5. Artifact Assembly
 Assemble the final package using the `New-PowerPackerPackage` cmdlet.
 - **Output**: The artifact will be located in `Artifacts/<package-name>/`.
 - **Toolkit**: Ensure the latest PSADT v4 template is bundled.
 - **Payload**: Verify the installer and WinGet manifest are placed in the `Files/` subdirectory.
-- **Installer Verification**: After downloading, verify the installer supports the intended scope (machine vs user) by checking the manifest or testing installation in a sandbox.
+- **Installer Verification**: After downloading, verify the installer supports the intended scope (machine vs user) by checking the manifest and, when needed, by running the generated PSADT package directly from the artifact directory.
+- **Metadata Verification**: Compare the downloaded installer filename in `Files\` and the saved manifest with `artifact-metadata.json`. The recorded URL, SHA256, and scope should describe the same installer variant that was actually packaged.
+- **Reference Script Preservation**: If the work produced a deploy script that would help future agents, add or update a tracked copy under `Examples\DeployScripts\`.
+
+### 6. Documentation Sync (Mandatory)
+After every successful package build or framework change, perform a documentation review before finishing:
+- **README.md**: Update with any human-relevant workflow change, operator warning, testing caveat, or packaging pitfall that would help a person use the project correctly.
+- **PROJECT.md**: Update the project status, recent lessons, or architecture notes so the file remains an accurate snapshot of the current state of the framework.
+- **AGENT_INSTRUCTIONS.md**: Record any durable lesson learned that would improve future package generation, metadata discovery, validation, uninstall handling, or artifact verification.
+- **Examples/DeployScripts/**: If the task produced a reusable deploy script, keep a tracked copy there instead of leaving it in an ignored local folder.
+- **Do Not Skip the Review**: Even when no edit is needed, explicitly check all three files and decide whether the current task produced anything worth preserving.
+- **Durability Rule**: Add only information that is likely to matter again. Do not add one-off noise, but do preserve recurring quirks, validator behavior, scope issues, filename patterns, uninstall patterns, and verification gaps.
 
 ---
 
@@ -134,6 +148,7 @@ Assemble the final package using the `New-PowerPackerPackage` cmdlet.
 - You are responsible for **Pester testing** all logic you implement within the framework.
 - If a test fails, you must analyze the failure, modify the code, and re-run the test until it passes.
 - Final delivery is only complete when all automated validations (AST and Pester) are green.
+- Final delivery is also expected to include any required documentation updates in `README.md`, `PROJECT.md`, and `AGENT_INSTRUCTIONS.md` when the task produced new durable knowledge.
 
 ---
 
@@ -236,4 +251,5 @@ Before marking a package as complete:
 - [ ] Handled common exit codes (0, 2147747880, 2147747867)
 - [ ] Set `RequireAdmin` correctly based on scope
 - [ ] AST validation passes with no errors
-- [ ] Package tested in Windows Sandbox (if available)
+- [ ] Package tested with direct PSADT execution from the artifact directory when testing was part of the task
+- [ ] Reviewed `README.md`, `PROJECT.md`, and `AGENT_INSTRUCTIONS.md` for updates prompted by this build
