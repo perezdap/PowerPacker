@@ -54,14 +54,14 @@ ELSE:
 
 ### 2. PSADT v4 Script Generation
 Generate a script that strictly adheres to **PSADT v4** syntax:
-- **Session Management**: Use `Open-ADTSession`, `Close-ADTSession`, and `$adtSession = @{}`.
+- **Session Management**: Use `Open-ADTSession`, `Close-ADTSession`, and `$adtSession = @{}`. Note that `Close-ADTSession` in v4 does NOT take a `-Session` parameter in its standard pattern.
 - **Entry Script Structure**: Always include a standard PSADT v4 `param()` block at the top. Use a safe module loading pattern to avoid "read-only" errors in persistent sessions:
   ```powershell
   $modulePath = Join-Path -Path $PSScriptRoot -ChildPath "PSAppDeployToolkit\PSAppDeployToolkit.psd1"
   if (-not (Get-Module -Name PSAppDeployToolkit)) { Import-Module -Name $modulePath }
   ```
   Pass `@PSBoundParameters` to `Open-ADTSession`.
-- **Variable Definitions**: Define all paths and arguments as variables at the top of the `try` block.
+- **Variable Definitions**: Define all paths and arguments as variables at the top of the `try` block. **AST Rule**: Every `-FilePath` passed to `Start-ADTProcess` MUST be a variable, even for system executables like `cmd.exe`.
 - **No Legacy Cmdlets**: Do NOT use v3 cmdlets. Use their v4 counterparts and correct parameter names:
   - `Execute-Process` -> `Start-ADTProcess` (Use `-ArgumentList`, not `-Arguments`)
   - `Show-InstallationWelcome` -> `Show-ADTInstallationWelcome` (Use `-CloseProcesses`, not `-CloseApps`)
@@ -72,7 +72,8 @@ Generate a script that strictly adheres to **PSADT v4** syntax:
 - **Parameter Strictness**: PSADT v4 validates that `-ArgumentList` is not null or empty. If no arguments are required, omit the parameter entirely rather than passing an empty string.
 - **Omaha "Silent" Variants**: Some vendors provide a `StandaloneSilentSetup.exe`. These often have silent/system-level defaults baked in. Adding redundant flags like `--install --silent` can trigger `0x80040c01` (invalidParameter). Test with minimal or no arguments first for these variants.
 - **Uninstall Resiliency**: Never hardcode version-specific paths for uninstalls (e.g., `\Application\1.2.3\setup.exe`).
-  - **Registry First**: Always attempt to retrieve the `UninstallString` from `HKLM` (and `HKCU` if scope is ambiguous).
+  - **Registry First**: Always attempt to retrieve the `UninstallString` from `HKLM` (both 64-bit and 32-bit/WOW6432Node) and `HKCU`. Many apps (like VSCodium) can be installed in either scope.
+  - **Inno Setup Detection**: If the uninstaller is `unins000.exe` (Inno Setup), it usually requires manual silent flags: `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`.
   - **Wildcard Fallback**: If the registry fails, use wildcards for versioned directories: `C:\Program Files\Vendor\App\*\Installer\setup.exe`.
   - **Multi-Scope Check**: If a machine-wide uninstaller is missing, check `%LOCALAPPDATA%` as a fallback, especially for browsers.
 - **Dynamic Fallbacks**: Implement registry lookups for uninstalls if the `ProductCode` is missing.
