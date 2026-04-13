@@ -180,7 +180,7 @@ When WinGet doesn't provide the right installer, use web search to find the ente
 | **Brave** | BraveBrowserStandaloneSilentSetup.exe | BraveBrowserStandaloneSetup.exe | GitHub releases |
 | **Firefox** | Firefox Setup.exe | Firefox Setup.msi | Firefox ESR downloads |
 | **Zoom** | ZoomInstaller.exe | ZoomInstallerFull.msi | Zoom Download Center |
-| **Slack** | SlackSetup.exe | SlackMachineInstaller.msi | Slack enterprise deployment |
+| **Slack** | SlackSetup.exe (WinGet) | Slack.msix | Slack IT admin portal — **MSI retired Sept 2025, use MSIX** |
 
 ### Web Search Commands
 Use these search queries when WinGet fails:
@@ -191,6 +191,63 @@ Use these search queries when WinGet fails:
 - `site:<vendor>.com enterprise deployment`
 
 **Note**: Only download from official vendor sources. Never use third-party download sites.
+
+---
+
+## 📦 MSIX Packages
+
+Some vendors have retired MSI/EXE installers in favor of MSIX. This changes the deployment pattern significantly — **do not use `Start-ADTProcess` for MSIX**. Use PowerShell cmdlets directly.
+
+### Known MSIX-Only Apps (MSI Retired)
+
+| App | MSI Retired | Replacement | Source |
+|-----|-------------|-------------|--------|
+| **Slack** | September 15, 2025 | MSIX from IT admin portal | slack.com IT downloads |
+
+### Automated Discovery: Check for MSIX Before Scripting
+
+Before generating a deploy script, check whether the app has retired its MSI:
+```
+1. Search: "<app name> MSI retired MSIX Windows enterprise"
+2. If retired: download MSIX from vendor IT portal — add note to definition frontmatter: installer_type: msix
+3. Do NOT use WinGet for MSIX-only apps — WinGet may still list the legacy EXE
+```
+
+### MSIX Install Pattern (replaces Start-ADTProcess)
+
+```powershell
+# Install machine-wide for all users
+$msixPath = Get-ChildItem -Path $dirFiles -Filter '*.msix' | Select-Object -ExpandProperty FullName -First 1
+if (-not $msixPath) { throw "MSIX not found in Files\. Must be downloaded manually from vendor." }
+Add-AppxPackage -Path $msixPath -MachineScope -ErrorAction Stop
+```
+
+### MSIX Uninstall Pattern
+
+```powershell
+# Remove for all users
+$pkg = Get-AppxPackage -AllUsers -Name '*AppName*' | Select-Object -First 1
+if ($pkg) { Remove-AppxPackage -Package $pkg.PackageFullName -AllUsers }
+
+# Remove provisioned package (prevents reinstall for new users)
+$prov = Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like '*AppName*' } | Select-Object -First 1
+if ($prov) { Remove-AppxProvisionedPackage -Online -PackageName $prov.PackageName }
+```
+
+### MSIX Detection Pattern
+
+```powershell
+# Check via Get-AppxPackage instead of registry or file path
+$installed = Get-AppxPackage -AllUsers -Name '*AppName*' | Select-Object -First 1
+```
+
+### MSIX Build Note
+
+MSIX installers cannot be downloaded via WinGet. Use `-SkipInstallerDownload` with `New-PowerPackerPackage` and place the MSIX manually in `Files\` before or after building:
+```powershell
+New-PowerPackerPackage -DefinitionPath '...' -DeployScriptPath '...' -SkipInstallerDownload
+# Then copy the MSIX into Artifacts\<PackageName>\Files\
+```
 
 ---
 
