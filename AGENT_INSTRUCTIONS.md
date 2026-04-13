@@ -206,6 +206,27 @@ if ($ActiveUser) {
 **Cause**: User-scoped apps are designed for manual install, not SYSTEM/SCCM deployment.
 **Solution**: Always prefer machine-scope installers for remote deployment. If unavailable, deploy via user-targeted deployment (SCCM user collection, Intune user context).
 
+### Error: Installer File Not Found in `Files\` at Runtime
+**Cause**: WinGet download filenames do NOT match the vendor's marketing name. WinGet uses the format `<Publisher AppName>_<Version>_<Scope>_<Architecture>_<InstallerType>_<Locale>.ext` (e.g., `Mozilla Firefox (en-US)_149.0.2_Machine_X64_nullsoft_en-US.exe`).
+**Solution**: Never filter by the assumed vendor filename (e.g., `"Firefox Setup *.exe"`). Use a wildcard anchored to the publisher/app name prefix:
+```powershell
+# Correct
+$InstallerPath = Get-ChildItem -Path $dirFiles -Filter "Mozilla Firefox*.exe" | Select-Object -ExpandProperty FullName -First 1
+
+# Wrong — assumes vendor marketing name
+$InstallerPath = Get-ChildItem -Path $dirFiles -Filter "Firefox Setup *.exe" | Select-Object -ExpandProperty FullName -First 1
+```
+After `New-PowerPackerPackage` runs, check `Files\` for the actual filename and base your filter on the publisher name prefix.
+
+### Error: App Launch Blocked After Aborted Install ("Launching this application has been temporarily blocked")
+**Cause**: `-BlockExecution` in `Show-ADTInstallationWelcome` writes an IFEO (Image File Execution Options) registry key at `HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\<process>.exe`. If the PSADT session terminates abnormally (crash, force-kill), `Close-ADTSession` never runs and the key is never removed — permanently blocking the app.
+**Solution**:
+1. **Avoid `-BlockExecution` unless strictly required** for the deployment scenario. Omit it for standard browser installs.
+2. To manually clean an orphaned block:
+```powershell
+Remove-Item 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\firefox.exe' -Force
+```
+
 ---
 
 ## 📋 Package Building Checklist
