@@ -87,19 +87,24 @@ Tell the agent to pack the application. It will handle metadata lookup, script g
 > **Prompt:** *"Pack 7zip.7zip based on the definition."*
 
 ### 3. Verify the Artifact
-Once the Agent finishes, it will create an artifact in the `Artifacts/` folder. You can now run a manual, disposable test.
+Once the Agent finishes, it will create an artifact in the `Artifacts/` folder. You can now test it locally or in a sandbox.
 
-**Option A: Windows Sandbox (Isolated)**
+#### Option A: Local Lab (Direct Host)
+Navigate to the artifact folder and run the entry script with PowerShell:
+
 ```powershell
-New-PowerPackerSandboxTest -PackagePath .\Artifacts\7zip.7zip -RunUninstall -Force
-Start-PowerPackerSandboxTest -WorkspaceDirectory .\Build\Sandbox\7zip.7zip -WaitForResult
+cd .\Artifacts\VSCodium.VSCodium
+# Run Install
+.\Invoke-AppDeployToolkit.ps1 -DeploymentType Install -DeployMode Interactive
+
+# Run Uninstall
+.\Invoke-AppDeployToolkit.ps1 -DeploymentType Uninstall -DeployMode Interactive
 ```
 
-**Option B: Local Lab (Direct Host)**
-```powershell
-New-PowerPackerLocalTest -PackagePath .\Artifacts\7zip.7zip -RunUninstall -Force
-Start-PowerPackerLocalTest -WorkspaceDirectory .\Build\LocalLab\7zip.7zip
-```
+#### Option B: Windows Sandbox (Isolated)
+If you want to test in a clean environment, you can use the `New-PowerPackerSandbox.wsb` (if provided) or simply copy the artifact folder into a Windows Sandbox instance and run the same commands as above.
+
+> **Tip**: Since artifacts are standard PSADT v4 packages, you can use all standard PSADT parameters like `-DeployMode Silent` or `-AllowRebootPassThru`.
 
 ---
 
@@ -107,5 +112,5 @@ Start-PowerPackerLocalTest -WorkspaceDirectory .\Build\LocalLab\7zip.7zip
 *   `Definitions/`: Human-written application requirements.
 *   `Artifacts/`: Agent-generated, ready-to-run PSADT packages.
 *   `AGENT_INSTRUCTIONS.md`: The rulebook you must feed to your AI Agent.
-*   `Build/`: Temporary workspaces for Sandbox and Local testing.
 *   `Private/`: Internal tools (AST Validators, Parsers) used by the Agent.
+*   `Public/`: Core cmdlets like `New-PowerPackerPackage`.

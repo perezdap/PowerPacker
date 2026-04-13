@@ -105,6 +105,7 @@ Before delivering any script or artifact, you MUST:
    - **Pro-Tip**: Ensure `Start-ADTProcess -FilePath` always uses a variable.
 2. **Framework Testing (If modifying framework code)**: If you are asked to update PowerPacker's own `.ps1` files, you MUST run the corresponding Pester tests in `Tests/` and ensure they pass.
 3. **Clean Environment**: Do NOT leave temporary test scripts or WinGet downloads in the project root. Perform all work in `Artifacts/` or use the `New-PowerPackerPackage` cmdlet which handles directory management.
+4. **Testing Instructions**: When asked how to test a package, instruct the user to navigate to the artifact directory and run the `Invoke-AppDeployToolkit.ps1` script with the desired `-DeploymentType` (Install/Uninstall).
 
 ### 5. Artifact Assembly
 Assemble the final package using the `New-PowerPackerPackage` cmdlet.
