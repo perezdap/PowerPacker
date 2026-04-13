@@ -15,30 +15,29 @@ We have removed most of this complexity. The AI Agent now serves as the executio
 - [x] Restructured `AGENT_INSTRUCTIONS.md` as an AI-Native Technical Specification.
 - [x] Maintained the strict PowerShell AST validator (`Test-PSADTAst.ps1`) for Agent self-correction.
 - [x] Added `New-PowerPackerPackage` to assemble a PSADT v4 template, generated entry script, and downloaded installer into a single artifact.
-- [x] Added Windows Sandbox workspace generation and launch helpers for disposable install/uninstall testing.
-- [x] Added **Local Lab Runner** as a zero-virtualization alternative for testing.
 - [x] Fixed scope-aware WinGet metadata so `artifact-metadata.json` matches the actual scoped installer downloaded into `Files\`.
 - [x] Added documentation-sync expectations so agents review `README.md`, `PROJECT.md`, and `AGENT_INSTRUCTIONS.md` after package builds and framework changes.
+- [x] Replaced the ignored repo-level `Build\` scratch usage with a tracked `Examples\DeployScripts\` folder for reusable reference scripts.
+- [x] Simplified testing guidance to rely on built-in PSADT execution from the generated artifact instead of custom sandbox/local test helpers.
 
 ## Recent Lessons
 - WinGet scope must be applied consistently across both metadata lookup and installer download. VS Code exposed this by returning different user and machine installer URLs.
 - Artifact verification needs to compare three things together: the downloaded installer in `Files\`, the saved WinGet manifest, and `artifact-metadata.json`.
 - The current AST validator is stricter than typical PSADT style and expects `Close-ADTSession` after `catch`, not inside `finally`.
 - Durable lessons should be written back into both human-facing docs and agent-facing instructions, not left buried in a single artifact or chat session.
+- Reusable deploy scripts should not live in an ignored repo folder. If a script is worth keeping, commit it under `Examples\DeployScripts\`.
 
 ## Architecture
 - **Framework Elements:**
   - `AGENT_INSTRUCTIONS.md` (System Prompt / Rules)
   - `Definitions/` (Markdown Intent)
+  - `Examples/DeployScripts/` (Tracked reference deploy scripts)
   - `Private/Test-PSADTAst.ps1` (Local Tool / Validation)
   - `.vscode/mcp.json.example` (Optional WinGet STDIO Integration)
   - `Public/New-PowerPackerPackage.ps1` (PSADT + installer artifact assembly)
-  - `Public/New-PowerPackerSandboxTest.ps1` / `Public/Start-PowerPackerSandboxTest.ps1` (Sandbox testing)
-  - `Public/New-PowerPackerLocalTest.ps1` / `Public/Start-PowerPackerLocalTest.ps1` (Local host/lab testing)
 
 ## To-Do
 - [ ] Add more granular AST validation rules for complex registry detections.
 - [ ] Create a library of example definitions for complex installers (e.g., Python, Docker).
 - [ ] Refine `AGENT_INSTRUCTIONS.md` based on real-world Agent generation tests.
 - [ ] Add artifact compression/signing options for distribution workflows.
-- [ ] Expand sandbox/local assertions beyond install/uninstall exit-code validation with richer app-specific probes.

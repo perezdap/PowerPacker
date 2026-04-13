@@ -1,6 +1,5 @@
 .env
 .vscode/mcp.json
-Build/
 Artifacts/
 .tmp/
 .gemini/settings.json
