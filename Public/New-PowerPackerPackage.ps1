@@ -118,6 +118,9 @@ function New-PowerPackerPackage {
             if ($Locale) {
                 $wingetMetadataParams.Locale = $Locale
             }
+            if ($Scope) {
+                $wingetMetadataParams.Scope = $Scope
+            }
 
             $wingetMetadata = Get-WingetPackageMetadata @wingetMetadataParams
             Set-Content -LiteralPath (Join-Path $powerPackerSupportDirectory 'winget-show.txt') -Value $wingetMetadata.RawOutput
@@ -181,6 +184,7 @@ function New-PowerPackerPackage {
                     WingetId         = $wingetMetadata.ResolvedId
                     RequestedId      = $definition.winget_id
                     RequestedVersion = $WingetVersion
+                    RequestedScope   = $Scope
                     ResolvedVersion  = $wingetMetadata.Version
                     InstallerType    = $wingetMetadata.InstallerType
                     InstallerUrl     = $wingetMetadata.InstallerUrl

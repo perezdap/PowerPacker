@@ -108,6 +108,14 @@ If you want to test in a clean environment, you can use the `New-PowerPackerSand
 
 ---
 
+## ⚠️ Recent Pitfalls
+
+- **Keep WinGet scope consistent**: If the package is intended for machine deployment, the Agent should use the same scope for both metadata lookup and installer download. Querying `winget show` without `--scope machine` and then downloading with `--scope machine` can produce mismatched metadata in `artifact-metadata.json`.
+- **Verify artifact metadata against the downloaded installer**: After packaging, compare the installer filename in `Files/`, the saved WinGet manifest, and `SupportFiles\PowerPacker\artifact-metadata.json`. The URL, SHA256, and scope should all describe the same installer variant.
+- **Current AST validator prefers a simple top-level pattern**: The validator currently expects `Open-ADTSession`, then a top-level `try/catch`, then `Close-ADTSession`. Until that rule changes, scripts that move `Close-ADTSession` into `finally` may fail validation even if they are otherwise reasonable.
+
+---
+
 ## 📂 Project Structure
 *   `Definitions/`: Human-written application requirements.
 *   `Artifacts/`: Agent-generated, ready-to-run PSADT packages.

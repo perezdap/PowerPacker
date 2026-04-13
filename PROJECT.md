@@ -17,6 +17,14 @@ We have removed most of this complexity. The AI Agent now serves as the executio
 - [x] Added `New-PowerPackerPackage` to assemble a PSADT v4 template, generated entry script, and downloaded installer into a single artifact.
 - [x] Added Windows Sandbox workspace generation and launch helpers for disposable install/uninstall testing.
 - [x] Added **Local Lab Runner** as a zero-virtualization alternative for testing.
+- [x] Fixed scope-aware WinGet metadata so `artifact-metadata.json` matches the actual scoped installer downloaded into `Files\`.
+- [x] Added documentation-sync expectations so agents review `README.md`, `PROJECT.md`, and `AGENT_INSTRUCTIONS.md` after package builds and framework changes.
+
+## Recent Lessons
+- WinGet scope must be applied consistently across both metadata lookup and installer download. VS Code exposed this by returning different user and machine installer URLs.
+- Artifact verification needs to compare three things together: the downloaded installer in `Files\`, the saved WinGet manifest, and `artifact-metadata.json`.
+- The current AST validator is stricter than typical PSADT style and expects `Close-ADTSession` after `catch`, not inside `finally`.
+- Durable lessons should be written back into both human-facing docs and agent-facing instructions, not left buried in a single artifact or chat session.
 
 ## Architecture
 - **Framework Elements:**
