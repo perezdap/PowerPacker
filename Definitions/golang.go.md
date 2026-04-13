@@ -1,5 +1,5 @@
 ---
-winget_id: Google.Go
+winget_id: Golang.Go
 name: Go Programming Language
 version: 1.22.2
 ---
