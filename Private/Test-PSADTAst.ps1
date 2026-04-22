@@ -210,6 +210,34 @@ function Test-PSADTAst {
         }
     }
 
+    if ($ScriptCode -match 'InstallerFilesByArchitecture') {
+        if ($ScriptCode -notmatch 'RuntimeInformation') {
+            $errors += "Architecture-aware scripts must query OS architecture via [System.Runtime.InteropServices.RuntimeInformation]."
+        }
+
+        if ($ScriptCode -notmatch 'OSArchitecture') {
+            $errors += "Architecture-aware scripts must reference OSArchitecture when selecting installers."
+        }
+
+        $switchStatements = $ast.FindAll({
+                $args[0] -is [System.Management.Automation.Language.SwitchStatementAst]
+            }, $true)
+
+        if ($switchStatements.Count -eq 0) {
+            $errors += "Architecture-aware scripts must use a switch statement to map OS architecture to installer paths."
+        }
+
+        $logEntries = $ast.FindAll({
+                $args[0] -is [System.Management.Automation.Language.CommandAst] -and
+                $args[0].CommandElements.Count -gt 0 -and
+                $args[0].CommandElements[0].Value -eq 'Write-ADTLogEntry'
+            }, $true)
+
+        if ($logEntries.Count -eq 0) {
+            $errors += "Architecture-aware scripts must call Write-ADTLogEntry when documenting installer selection or fallbacks."
+        }
+    }
+
     return [pscustomobject]@{
         IsValid = ($errors.Count -eq 0)
         Errors = $errors

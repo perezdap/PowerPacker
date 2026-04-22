@@ -1,6 +1,6 @@
 # Plan: Multi-Architecture (x64/x86/ARM64) Packaging for PowerPacker
 
-> **Status:** Updated Draft  
+> **Status:** Implemented in framework (see repository `README.md` / `AGENT_INSTRUCTIONS.md` for operator and agent guidance)  
 > **Scope:** Framework (parser, downloader, orchestrator, metadata, validator, docs/tests)  
 > **Target:** Universal + locked-architecture PSADT artifacts
 
@@ -196,19 +196,19 @@ Use canonical labels in framework metadata and script logic:
 
 ## Acceptance criteria
 
-- [ ] Definitions support `architecture: auto|native|x64|x86|arm64`, invalid values are rejected.
-- [ ] Missing architecture in definition defaults to `auto`.
-- [ ] `New-PowerPackerPackage -Architecture` overrides definition policy.
-- [ ] `auto`/`native` builds include all available architectures discovered from winget.
-- [ ] Locked builds include only requested architecture.
-- [ ] Metadata includes `MetadataSchemaVersion`, `ArchitecturePolicy`, `AvailableArchitectures`, and per-architecture installer mappings/provenance.
-- [ ] Downloaded installer SHA256 values are verified against metadata; mismatches fail the build.
-- [ ] Generated deploy scripts select installer by runtime OS architecture and follow documented fallback matrix.
-- [ ] ARM64 endpoints prefer ARM64 installer and correctly fall back to X64 when ARM64 is unavailable.
-- [ ] X86 endpoints do not attempt invalid X64 fallback.
-- [ ] AST validator passes compliant scripts and fails non-compliant multi-arch selection patterns.
-- [ ] Full Pester suite passes with new and existing tests.
-- [ ] README/PROJECT/AGENT_INSTRUCTIONS are updated to reflect the implemented architecture model.
+- [x] Definitions support `architecture: auto|native|x64|x86|arm64`, invalid values are rejected.
+- [x] Missing architecture in definition defaults to `auto`.
+- [x] `New-PowerPackerPackage -Architecture` overrides definition policy.
+- [x] `auto`/`native` builds include all available architectures discovered from winget.
+- [x] Locked builds include only requested architecture.
+- [x] Metadata includes `MetadataSchemaVersion`, `ArchitecturePolicy`, `AvailableArchitectures`, and per-architecture installer mappings/provenance.
+- [x] Downloaded installer SHA256 values are verified against metadata; mismatches fail the build.
+- [x] Generated deploy scripts select installer by runtime OS architecture and follow documented fallback matrix.
+- [x] ARM64 endpoints prefer ARM64 installer and correctly fall back to X64 when ARM64 is unavailable.
+- [x] X86 endpoints do not attempt invalid X64 fallback.
+- [x] AST validator passes compliant scripts and fails non-compliant multi-arch selection patterns.
+- [x] Full Pester suite passes with new and existing tests.
+- [x] README/PROJECT/AGENT_INSTRUCTIONS are updated to reflect the implemented architecture model.
 
 ---
 

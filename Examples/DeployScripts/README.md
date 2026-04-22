@@ -6,6 +6,7 @@ Use this folder for:
 - reusable PSADT entry scripts
 - reference implementations for tricky installers
 - scripts that capture lessons learned worth preserving in git
+- multi-architecture installer selection patterns (see `multi-arch.installer.example.ps1`)
 
 Do not use this folder for:
 - one-off scratch work

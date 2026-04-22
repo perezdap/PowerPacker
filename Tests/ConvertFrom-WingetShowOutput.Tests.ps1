@@ -12,6 +12,7 @@ Moniker: go
 Installer:
   Installer Type: wix
   Installer Locale: en-US
+  Architecture: x64
   Installer Url: https://go.dev/dl/go1.26.2.windows-amd64.msi
   Installer SHA256: 84826eca833548bb2beabe7429052eaaec18faa902fde723898d906b42e59a73
   Release Date: 2026-04-07
@@ -26,6 +27,7 @@ Installer:
         $result.Moniker | Should -Be "go"
         $result.Installer.Type | Should -Be "wix"
         $result.Installer.Locale | Should -Be "en-US"
+        $result.Installer.Architecture | Should -Be "x64"
         $result.Installer.Url | Should -Be "https://go.dev/dl/go1.26.2.windows-amd64.msi"
         $result.Installer.Sha256 | Should -Be "84826eca833548bb2beabe7429052eaaec18faa902fde723898d906b42e59a73"
         $result.Installer.ReleaseDate | Should -Be "2026-04-07"

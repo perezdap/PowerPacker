@@ -25,6 +25,16 @@ Create a simple Markdown file in the `Definitions/` folder. This is your primary
 - `# Uninstall`
 - `# Detection`
 
+#### Architecture policy (WinGet)
+Definitions may set `architecture` in YAML frontmatter (`auto`, `native`, `x64`, `x86`, or `arm64`). Omitted values default to `auto`, which probes WinGet for `x64`, `arm64`, `x86`, and `neutral`, downloads each distinct installer URL it finds, and records per-architecture provenance in `artifact-metadata.json` (`MetadataSchemaVersion` 2). `native` uses the same discovery rules as `auto` but records a different `ArchitecturePolicy` label when you want metadata to express a native-first posture. Locked values download exactly one architecture.
+
+**Runtime fallback matrix (deploy scripts)**  
+ARM64 endpoints: `ARM64 → X64 → NEUTRAL → fail`.  
+X64 endpoints: `X64 → NEUTRAL → fail`.  
+X86 endpoints: `X86 → NEUTRAL → fail` (do not fall back to X64).
+
+`New-PowerPackerPackage -Architecture` overrides the definition when you need a one-off build (for example, forcing `x64` on a definition that normally uses `auto`).
+
 #### Scope Preference (Critical)
 By default, the Agent will attempt to find a **machine-scope** installer suitable for remote/SYSTEM deployment. 
 
@@ -105,6 +115,8 @@ cd .\Artifacts\VSCodium.VSCodium
 ## ⚠️ Recent Pitfalls
 
 - **Keep WinGet scope consistent**: If the package is intended for machine deployment, the Agent should use the same scope for both metadata lookup and installer download. Querying `winget show` without `--scope machine` and then downloading with `--scope machine` can produce mismatched metadata in `artifact-metadata.json`.
+- **Multi-architecture builds verify SHA256**: When installers are downloaded, PowerPacker hashes each payload and fails the build if it does not match the WinGet metadata SHA256 for that architecture.
+- **Per-architecture WinGet logs**: Multi-architecture builds save `winget-show-<arch>.txt` and `winget-download-<arch>.txt` under `SupportFiles\PowerPacker\` instead of a single pair of files.
 - **Verify artifact metadata against the downloaded installer**: After packaging, compare the installer filename in `Files/`, the saved WinGet manifest, and `SupportFiles\PowerPacker\artifact-metadata.json`. The URL, SHA256, and scope should all describe the same installer variant.
 - **Current AST validator prefers a simple top-level pattern**: The validator currently expects `Open-ADTSession`, then a top-level `try/catch`, then `Close-ADTSession`. Until that rule changes, scripts that move `Close-ADTSession` into `finally` may fail validation even if they are otherwise reasonable.
 - **Do not treat `Build/` as a source-of-truth folder**: Reusable deploy scripts should live in a tracked folder, not an ignored scratch directory. This repo now uses `Examples\DeployScripts\` for committed reference scripts.

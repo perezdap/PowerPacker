@@ -63,4 +63,62 @@ Detect installation.
 
         Remove-Item -Path $tempFile.FullName -Force
     }
+
+    It "Should default architecture to auto when omitted" {
+        $tempFile = New-TemporaryFile
+        $mockContent = @"
+---
+winget_id: Example.Package
+name: Example
+---
+
+# Install
+Install
+"@
+        Set-Content -Path $tempFile.FullName -Value $mockContent
+
+        $result = Parse-PackageMd -Path $tempFile.FullName
+        $result.architecture | Should -Be 'auto'
+
+        Remove-Item -Path $tempFile.FullName -Force
+    }
+
+    It "Should normalize supported architecture values to lowercase" {
+        $tempFile = New-TemporaryFile
+        $mockContent = @"
+---
+winget_id: Example.Package
+name: Example
+architecture: ARM64
+---
+
+# Install
+Install
+"@
+        Set-Content -Path $tempFile.FullName -Value $mockContent
+
+        $result = Parse-PackageMd -Path $tempFile.FullName
+        $result.architecture | Should -Be 'arm64'
+
+        Remove-Item -Path $tempFile.FullName -Force
+    }
+
+    It "Should reject unsupported architecture values" {
+        $tempFile = New-TemporaryFile
+        $mockContent = @"
+---
+winget_id: Example.Package
+name: Example
+architecture: riscv64
+---
+
+# Install
+Install
+"@
+        Set-Content -Path $tempFile.FullName -Value $mockContent
+
+        { Parse-PackageMd -Path $tempFile.FullName } | Should -Throw '*Invalid architecture*'
+
+        Remove-Item -Path $tempFile.FullName -Force
+    }
 }

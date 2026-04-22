@@ -2,10 +2,12 @@ Describe "New-PowerPackerPackage" {
     BeforeAll {
         . "$PSScriptRoot/../Private/Parse-PackageMd.ps1"
         . "$PSScriptRoot/../Private/ConvertFrom-WingetShowOutput.ps1"
+        . "$PSScriptRoot/../Private/Assert-InstallerSha256.ps1"
         . "$PSScriptRoot/../Private/Get-PSADTTemplateAsset.ps1"
         . "$PSScriptRoot/../Private/Save-PSADTTemplate.ps1"
         . "$PSScriptRoot/../Private/Resolve-WingetPackageId.ps1"
         . "$PSScriptRoot/../Private/Get-WingetPackageMetadata.ps1"
+        . "$PSScriptRoot/../Private/Resolve-WingetArchitectures.ps1"
         . "$PSScriptRoot/../Private/Save-WingetPackageInstaller.ps1"
         . "$PSScriptRoot/../Public/New-PowerPackerPackage.ps1"
     }
@@ -56,6 +58,9 @@ Detect installation.
             Test-Path -LiteralPath $result.MetadataPath | Should -Be $true
 
             $metadata = Get-Content -LiteralPath $result.MetadataPath -Raw | ConvertFrom-Json
+            $metadata.MetadataSchemaVersion | Should -Be 2
+            $metadata.ArchitecturePolicy | Should -Be 'auto'
+            $metadata.AvailableArchitectures.Count | Should -Be 0
             $metadata.Installer.Downloaded | Should -Be $false
             $metadata.Package.winget_id | Should -Be "Golang.Go"
         }

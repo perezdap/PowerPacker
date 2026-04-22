@@ -63,6 +63,7 @@ Generate a script that strictly adheres to **PSADT v4** syntax:
   ```
   Pass `@PSBoundParameters` to `Open-ADTSession`.
 - **Variable Definitions**: Define all paths and arguments as variables at the top of the `try` block. **AST Rule**: Every `-FilePath` passed to `Start-ADTProcess` MUST be a variable, even for system executables like `cmd.exe`.
+- **Architecture-aware installs**: When the deploy script references `InstallerFilesByArchitecture` (typically after reading `SupportFiles\PowerPacker\artifact-metadata.json`), the AST validator requires: `[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture`, a `switch` that maps the runtime architecture to the correct installer entry, and at least one `Write-ADTLogEntry` call so fallbacks are auditable. Follow the fallback matrix documented in `README.md` / `PLAN-ARM-ARCHITECTURE.md`. Use `Examples/DeployScripts/multi-arch.installer.example.ps1` as the canonical pattern.
 - **No Legacy Cmdlets**: Do NOT use v3 cmdlets. Use their v4 counterparts and correct parameter names:
   - `Execute-Process` -> `Start-ADTProcess` (Use `-ArgumentList`, not `-Arguments`)
   - `Show-InstallationWelcome` -> `Show-ADTInstallationWelcome` (Use `-CloseProcesses`, not `-CloseApps`)
@@ -112,6 +113,8 @@ Before delivering any script or artifact, you MUST:
 
 ### 5. Artifact Assembly
 Assemble the final package using the `New-PowerPackerPackage` cmdlet.
+- **Architecture policy**: Definitions may include `architecture: auto|native|x64|x86|arm64` (default `auto`). `New-PowerPackerPackage -Architecture` overrides the definition for a single build. `auto` and `native` discover all WinGet architectures PowerPacker can resolve (`x64`, `arm64`, `x86`, `neutral`), deduplicate identical URLs, download each variant, verify SHA256 against WinGet metadata, and emit `MetadataSchemaVersion` 2 fields (`ArchitecturePolicy`, `AvailableArchitectures`, `InstallerFilesByArchitecture`, `InstallerMetadataByArchitecture`) while keeping the legacy `Installer` object populated for compatibility.
+- **WinGet evidence files**: Multi-architecture builds write `winget-show-<arch>.txt` and `winget-download-<arch>.txt` beside `artifact-metadata.json`.
 - **Output**: The artifact will be located in `Artifacts/<package-name>/`.
 - **Toolkit**: Ensure the latest PSADT v4 template is bundled.
 - **Payload**: Verify the installer and WinGet manifest are placed in the `Files/` subdirectory.
