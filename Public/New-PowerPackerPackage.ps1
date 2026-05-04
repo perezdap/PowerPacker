@@ -39,6 +39,15 @@ function New-PowerPackerPackage {
         throw "Definition '$DefinitionPath' does not contain a winget_id in YAML frontmatter."
     }
 
+    if (-not (Test-Path -LiteralPath $DeployScriptPath -PathType Leaf)) {
+        throw "Deploy script path '$DeployScriptPath' was not found."
+    }
+
+    $deployScriptValidation = Test-PSADTAst -ScriptCode (Get-Content -LiteralPath $DeployScriptPath -Raw)
+    if (-not $deployScriptValidation.IsValid) {
+        throw "Deploy script '$DeployScriptPath' failed PSADT AST validation. $($deployScriptValidation.Errors -join ' ')"
+    }
+
     $architecturePolicy = if ($PSBoundParameters.ContainsKey('Architecture') -and -not [string]::IsNullOrWhiteSpace($Architecture)) {
         $Architecture.Trim().ToLowerInvariant()
     }

@@ -9,6 +9,7 @@ Describe "New-PowerPackerPackage" {
         . "$PSScriptRoot/../Private/Get-WingetPackageMetadata.ps1"
         . "$PSScriptRoot/../Private/Resolve-WingetArchitectures.ps1"
         . "$PSScriptRoot/../Private/Save-WingetPackageInstaller.ps1"
+        . "$PSScriptRoot/../Private/Test-PSADTAst.ps1"
         . "$PSScriptRoot/../Public/New-PowerPackerPackage.ps1"
     }
 
@@ -45,7 +46,50 @@ Uninstall silently.
 Detect installation.
 "@
 
-            Set-Content -LiteralPath $scriptPath -Value "Write-Host 'generated'"
+            Set-Content -LiteralPath $scriptPath -Value @"
+[CmdletBinding()]
+param (
+    [Parameter(Mandatory = `$false)]
+    [ValidateSet('Install', 'Uninstall', 'Repair')]
+    [string]`$DeploymentType = 'Install',
+
+    [Parameter(Mandatory = `$false)]
+    [ValidateSet('Auto', 'Interactive', 'NonInteractive', 'Silent')]
+    [string]`$DeployMode = 'Auto',
+
+    [Parameter(Mandatory = `$false)]
+    [switch]`$SuppressRebootPassThru,
+
+    [Parameter(Mandatory = `$false)]
+    [switch]`$TerminalServerMode,
+
+    [Parameter(Mandatory = `$false)]
+    [switch]`$DisableLogging
+)
+
+`$modulePath = Join-Path -Path `$PSScriptRoot -ChildPath 'PSAppDeployToolkit\PSAppDeployToolkit.psd1'
+if (-not (Get-Module -Name PSAppDeployToolkit)) {
+    Import-Module -Name `$modulePath
+}
+
+`$adtSession = @{
+    AppVendor = 'Go'
+    AppName = 'Go Programming Language'
+    RequireAdmin = `$true
+}
+
+Open-ADTSession @adtSession @PSBoundParameters
+
+try {
+    Write-ADTLogEntry -Message 'generated'
+}
+catch {
+    Write-ADTLogEntry -Message "Deployment failed: `$(`$_.Exception.Message)" -Severity 3
+    throw
+}
+
+Close-ADTSession
+"@
 
             $result = New-PowerPackerPackage -DefinitionPath $definitionPath -DeployScriptPath $scriptPath -OutputDirectory $artifactRoot -PsadtTemplateZipPath $zipPath -SkipInstallerDownload -Force
 
@@ -63,6 +107,41 @@ Detect installation.
             $metadata.AvailableArchitectures.Count | Should -Be 0
             $metadata.Installer.Downloaded | Should -Be $false
             $metadata.Package.winget_id | Should -Be "Golang.Go"
+        }
+        finally {
+            if (Test-Path -LiteralPath $root) {
+                Remove-Item -LiteralPath $root -Recurse -Force
+            }
+        }
+    }
+
+    It "Should reject a deploy script that fails PSADT AST validation" {
+        $root = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().Guid)
+        $artifactRoot = Join-Path $root 'artifacts'
+        $definitionPath = Join-Path $root 'golang-go.md'
+        $scriptPath = Join-Path $root 'generated-script.ps1'
+        $zipPath = Join-Path $root 'PSAppDeployToolkit_Template_v4.zip'
+
+        try {
+            New-Item -ItemType Directory -Force -Path $root | Out-Null
+            Set-Content -LiteralPath $definitionPath -Value @"
+---
+winget_id: Golang.Go
+name: Go Programming Language
+---
+
+# Install
+Install silently.
+"@
+
+            Set-Content -LiteralPath $scriptPath -Value "Write-Host 'generated'"
+            Set-Content -LiteralPath $zipPath -Value 'placeholder'
+
+            {
+                New-PowerPackerPackage -DefinitionPath $definitionPath -DeployScriptPath $scriptPath -OutputDirectory $artifactRoot -PsadtTemplateZipPath $zipPath -SkipInstallerDownload -Force
+            } | Should -Throw "*failed PSADT AST validation*"
+
+            Test-Path -LiteralPath $artifactRoot | Should -Be $false
         }
         finally {
             if (Test-Path -LiteralPath $root) {

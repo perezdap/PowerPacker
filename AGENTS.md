@@ -41,6 +41,7 @@ Artifacts/          ← Agent-generated, ready-to-run PSADT packages (git-ignore
 2. Agent generates a PSADT v4 entry script and validates it with `Private/Test-PSADTAst.ps1`
 3. Agent calls `New-PowerPackerPackage` which:
    - Downloads the latest PSADT v4 template via `gh` (GitHub Releases)
+   - Validates the generated script with `Test-PSADTAst` before artifact assembly
    - Copies the generated script as `Invoke-AppDeployToolkit.ps1`
    - Downloads the installer via WinGet into `Files\`
    - Writes `SupportFiles\PowerPacker\artifact-metadata.json`
@@ -108,7 +109,7 @@ Generate a script that strictly adheres to **PSADT v4** syntax:
   ```
   Pass `@PSBoundParameters` to `Open-ADTSession`.
 - **Variable Definitions**: Define all paths and arguments as variables at the top of the `try` block. **AST Rule**: Every `-FilePath` passed to `Start-ADTProcess` MUST be a variable, even for system executables like `cmd.exe`.
-- **Architecture-aware installs**: When the deploy script references `InstallerFilesByArchitecture` (typically after reading `SupportFiles\PowerPacker\artifact-metadata.json`), the AST validator requires: `[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture`, a `switch` that maps the runtime architecture to the correct installer entry, and at least one `Write-ADTLogEntry` call so fallbacks are auditable. Follow the fallback matrix documented in `README.md` / `PLAN-ARM-ARCHITECTURE.md`. Use `Examples/DeployScripts/multi-arch.installer.example.ps1` as the canonical pattern.
+- **Architecture-aware installs**: When the deploy script references `InstallerFilesByArchitecture` (typically after reading `SupportFiles\PowerPacker\artifact-metadata.json`), the AST validator requires: `[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture`, a `switch` that maps the runtime architecture to the correct installer entry, and at least one `Write-ADTLogEntry` call so fallbacks are auditable. Follow the fallback matrix documented in `README.md`. Use `Examples/DeployScripts/multi-arch.installer.example.ps1` as the canonical pattern.
 - **No Legacy Cmdlets**: Do NOT use v3 cmdlets. Use their v4 counterparts and correct parameter names:
   - `Execute-Process` -> `Start-ADTProcess` (Use `-ArgumentList`, not `-Arguments`)
   - `Show-InstallationWelcome` -> `Show-ADTInstallationWelcome` (Use `-CloseProcesses`, not `-CloseApps`)
@@ -152,6 +153,7 @@ Before delivering any script or artifact, you MUST:
    - **Pro-Tip**: Use a unique variable name for your script code (e.g., `$myScriptCode`) to avoid collision with the validator's internal variables when dot-sourcing.
    - **Pro-Tip**: Ensure `Start-ADTProcess -FilePath` always uses a variable.
    - **Validator Quirk**: The current AST rule expects a top-level `try/catch` between `Open-ADTSession` and `Close-ADTSession`. Until the validator is changed, prefer `Close-ADTSession` after the `catch` block rather than inside `finally`, even though `finally` would normally be the cleaner pattern.
+   - **Assembly Guardrail**: `New-PowerPackerPackage` also runs `Test-PSADTAst` against `-DeployScriptPath` and fails before artifact layout if validation fails. Do not bypass this by copying scripts into artifacts manually.
 2. **Framework Testing (If modifying framework code)**: If you are asked to update PowerPacker's own `.ps1` files, you MUST run the corresponding Pester tests in `Tests/` and ensure they pass.
 3. **Clean Environment**: Do NOT leave temporary test scripts or WinGet downloads in the project root. Perform all work in `Artifacts/` or use the `New-PowerPackerPackage` cmdlet which handles directory management.
    - **Tracked Script Rule**: Do not rely on a repo-level `Build\` scratch folder for reusable scripts. If a deploy script is worth keeping for future work, store it in `Examples\DeployScripts\` so it is versioned.
