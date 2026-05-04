@@ -51,7 +51,7 @@ try {
         }
 
         Write-ADTLogEntry -Message "Installing Slack MSIX machine-wide from '$msixPath'."
-        Add-AppxPackage -Path $msixPath -MachineScope -ErrorAction Stop
+        Add-AppxProvisionedPackage -Online -PackagePath $msixPath -SkipLicense -ErrorAction Stop
         Write-ADTLogEntry -Message 'Slack MSIX installation completed.'
 
         # Remove Desktop shortcuts created during provisioning

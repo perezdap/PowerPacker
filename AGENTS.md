@@ -366,8 +366,10 @@ Before generating a deploy script, check whether the app has retired its MSI:
 # Install machine-wide for all users
 $msixPath = Get-ChildItem -Path $dirFiles -Filter '*.msix' | Select-Object -ExpandProperty FullName -First 1
 if (-not $msixPath) { throw "MSIX not found in Files\. Must be downloaded manually from vendor." }
-Add-AppxPackage -Path $msixPath -MachineScope -ErrorAction Stop
+Add-AppxProvisionedPackage -Online -PackagePath $msixPath -SkipLicense -ErrorAction Stop
 ```
+
+> **Warning**: `Add-AppxPackage` does **not** have a `-MachineScope` parameter. It is a per-user cmdlet (Appx module). For machine-wide MSIX provisioning, you must use `Add-AppxProvisionedPackage` (Dism module) with `-Online -SkipLicense`. This is a common error that will produce `A parameter cannot be found that matches parameter name 'MachineScope'`.
 
 ### MSIX Uninstall Pattern
 

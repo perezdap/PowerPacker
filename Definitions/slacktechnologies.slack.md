@@ -16,8 +16,9 @@ Close Slack if it is currently running.
 
 ## Install
 Install Slack machine-wide using the MSIX package from Slack's IT admin portal. Use
-`Add-AppxPackage -MachineScope` to provision for all users on the machine. Do NOT use
-`Start-ADTProcess` — MSIX deployment is handled by the `Add-AppxPackage` PowerShell cmdlet directly.
+`Add-AppxProvisionedPackage -Online -PackagePath <msix> -SkipLicense` to provision for all users
+on the machine. Do NOT use `Start-ADTProcess` — MSIX deployment is handled by the
+`Add-AppxProvisionedPackage` PowerShell cmdlet directly.
 
 ## Post-Install
 Remove any Desktop shortcuts created during provisioning.
