@@ -1,6 +1,6 @@
 # Plan: Multi-Architecture (x64/x86/ARM64) Packaging for PowerPacker
 
-> **Status:** Implemented in framework (see repository `README.md` / `AGENT_INSTRUCTIONS.md` for operator and agent guidance)  
+> **Status:** Implemented in framework (see repository `README.md` / `AGENTS.md` for operator and agent guidance)  
 > **Scope:** Framework (parser, downloader, orchestrator, metadata, validator, docs/tests)  
 > **Target:** Universal + locked-architecture PSADT artifacts
 
@@ -89,7 +89,7 @@ Use canonical labels in framework metadata and script logic:
 
 **Files**
 - `Public/New-PowerPackerPackage.ps1`
-- `README.md` / `AGENT_INSTRUCTIONS.md` docs examples
+- `README.md` / `AGENTS.md` docs examples
 
 **Required work**
 - Add `MetadataSchemaVersion` (e.g., `2`).
@@ -131,7 +131,7 @@ Use canonical labels in framework metadata and script logic:
 ## 5) Runtime installer selection pattern (generated scripts)
 
 **Files**
-- `AGENT_INSTRUCTIONS.md`
+- `AGENTS.md`
 - `Examples/DeployScripts/` (add a multi-arch reference script)
 
 **Required work**
@@ -182,7 +182,7 @@ Use canonical labels in framework metadata and script logic:
 **Files**
 - `README.md`
 - `PROJECT.md`
-- `AGENT_INSTRUCTIONS.md`
+- `AGENTS.md`
 - `PLAN-ARM-ARCHITECTURE.md`
 
 **Required work**
@@ -208,7 +208,7 @@ Use canonical labels in framework metadata and script logic:
 - [x] X86 endpoints do not attempt invalid X64 fallback.
 - [x] AST validator passes compliant scripts and fails non-compliant multi-arch selection patterns.
 - [x] Full Pester suite passes with new and existing tests.
-- [x] README/PROJECT/AGENT_INSTRUCTIONS are updated to reflect the implemented architecture model.
+- [x] README/PROJECT/AGENTS are updated to reflect the implemented architecture model.
 
 ---
 

@@ -160,6 +160,6 @@ cd .\Artifacts\VSCodium.VSCodium
 *   `Artifacts/`: Generated, ready-to-run PSADT packages (default output of `New-PowerPackerPackage`).
 *   `Examples/DeployScripts/`: Tracked reference deploy scripts worth reusing or adapting ([README](Examples/DeployScripts/README.md)).
 *   `Tests/`: Pester tests; run `Invoke-Pester .\Tests\` from the repository root after installing the [Pester](https://github.com/pester/Pester) module.
-*   `AGENT_INSTRUCTIONS.md`: The rulebook you must feed to your AI Agent.
+*   `AGENTS.md`: The rulebook you must feed to your AI Agent.
 *   `Private/`: Internal tools (AST validators, parsers, WinGet helpers) used by the module and Agent.
 *   `Public/`: Core cmdlets like `New-PowerPackerPackage`.
