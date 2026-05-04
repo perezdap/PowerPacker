@@ -392,11 +392,19 @@ $installed = Get-AppxPackage -AllUsers -Name '*AppName*' | Select-Object -First 
 
 ### MSIX Build Note
 
-MSIX installers cannot be downloaded via WinGet. Use `-SkipInstallerDownload` with `New-PowerPackerPackage` and place the MSIX manually in `Files\` before or after building:
+MSIX installers cannot be downloaded via WinGet. Use `-SkipInstallerDownload` with `New-PowerPackerPackage` and place the MSIX manually in `Files\` after building:
 ```powershell
 New-PowerPackerPackage -DefinitionPath '...' -DeployScriptPath '...' -SkipInstallerDownload
 # Then copy the MSIX into Artifacts\<PackageName>\Files\
 ```
+
+**Important:** `-SkipInstallerDownload` creates an **empty `Files\` folder**. You must manually copy the installer into `Files\` after the build completes. If you use `-Force` to rebuild an existing artifact, `New-PowerPackerPackage` **deletes the entire artifact directory first**, which removes any MSIX you previously copied. Always re-copy the installer after a forced rebuild.
+
+**Recommended MSIX workflow:**
+1. Build the artifact: `New-PowerPackerPackage ... -SkipInstallerDownload`
+2. Download the MSIX from the vendor IT portal
+3. Copy the MSIX into `Artifacts\<PackageName>\Files\`
+4. Verify `Files\` is populated before testing or distributing the artifact
 
 ---
 
