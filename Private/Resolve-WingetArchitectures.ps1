@@ -70,7 +70,7 @@ function Resolve-WingetArchitectures {
             [pscustomobject]@{
                 CanonicalLabel     = $probe.Canonical
                 WingetArchitecture = $probe.Winget
-                Metadata             = $metadata
+                Metadata           = $metadata
             }
         )
     }

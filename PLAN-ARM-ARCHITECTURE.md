@@ -1,6 +1,6 @@
 # Plan: Multi-Architecture (x64/x86/ARM64) Packaging for PowerPacker
 
-> **Status:** Implemented in framework (see repository `README.md` / `AGENTS.md` for operator and agent guidance)  
+> **Status: COMPLETE** — All acceptance criteria are implemented and verified. This document is archived for reference only; do not treat it as active work. See `README.md` and `AGENTS.md` for current operator and agent guidance.  
 > **Scope:** Framework (parser, downloader, orchestrator, metadata, validator, docs/tests)  
 > **Target:** Universal + locked-architecture PSADT artifacts
 

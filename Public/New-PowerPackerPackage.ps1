@@ -149,7 +149,7 @@ function New-PowerPackerPackage {
                     [pscustomobject]@{
                         CanonicalLabel     = $canonicalLabel
                         WingetArchitecture = $architecturePolicy
-                        Metadata             = $lockedMetadata
+                        Metadata           = $lockedMetadata
                     }
                 )
             }
@@ -210,9 +210,12 @@ function New-PowerPackerPackage {
                     throw "winget download for '$($definition.winget_id)' ($archSupportLabel) did not produce an installer file."
                 }
 
-                $artifactRootFull = [System.IO.Path]::GetFullPath($artifactDirectory)
+                $artifactRootFull = [System.IO.Path]::GetFullPath($artifactDirectory).TrimEnd('\')
                 $installerFullPath = [System.IO.Path]::GetFullPath([string]$primaryInstallerPath)
-                $relativeInstallerPath = $installerFullPath.Substring($artifactRootFull.Length).TrimStart('\')
+                if (-not $installerFullPath.StartsWith($artifactRootFull + '\', [System.StringComparison]::OrdinalIgnoreCase)) {
+                    throw "Installer path '$installerFullPath' is not under artifact directory '$artifactRootFull'."
+                }
+                $relativeInstallerPath = $installerFullPath.Substring($artifactRootFull.Length + 1)
 
                 $null = $availableArchitectures.Add($job.CanonicalLabel)
                 $installerFilesByArchitecture[$job.CanonicalLabel] = $relativeInstallerPath

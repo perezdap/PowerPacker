@@ -50,14 +50,25 @@ try {
             throw "Slack MSIX installer not found in '$dirFiles'. Download from Slack's IT admin portal and place it in Files\."
         }
 
-        Write-ADTLogEntry -Message "Installing Slack MSIX machine-wide from '$msixPath'."
-        # Add-AppxProvisionedPackage uses DISM COM APIs that are unreliable in PowerShell 7.
-        # Delegate to Windows PowerShell 5.1 where the COM class is properly registered.
-        $psPath = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
-        $escapedPath = $msixPath -replace "'", "''"
-        $provisionCommand = "Add-AppxProvisionedPackage -Online -PackagePath '$escapedPath' -SkipLicense -ErrorAction Stop"
-        Start-ADTProcess -FilePath $psPath -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $provisionCommand
-        Write-ADTLogEntry -Message 'Slack MSIX installation completed.'
+        # Skip provisioning if Slack is already provisioned — Add-AppxProvisionedPackage can fail on re-provision.
+        # Get-AppxProvisionedPackage is a read-only query and is reliable in PS7.
+        $alreadyProvisioned = Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -like $packageName } |
+            Select-Object -First 1
+
+        if ($alreadyProvisioned) {
+            Write-ADTLogEntry -Message "Slack is already provisioned ('$($alreadyProvisioned.PackageName)'). Skipping installation."
+        }
+        else {
+            Write-ADTLogEntry -Message "Installing Slack MSIX machine-wide from '$msixPath'."
+            # Add-AppxProvisionedPackage uses DISM COM APIs that are unreliable in PowerShell 7.
+            # Delegate to Windows PowerShell 5.1 where the COM class is properly registered.
+            $psPath = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+            $escapedPath = $msixPath -replace "'", "''"
+            $provisionCommand = "Add-AppxProvisionedPackage -Online -PackagePath '$escapedPath' -SkipLicense -ErrorAction Stop"
+            Start-ADTProcess -FilePath $psPath -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $provisionCommand
+            Write-ADTLogEntry -Message 'Slack MSIX installation completed.'
+        }
 
         # Remove Desktop shortcuts created during provisioning
         foreach ($desktopRoot in @(
@@ -80,6 +91,7 @@ try {
 
         if ($installedPackage) {
             Write-ADTLogEntry -Message "Removing Slack AppX package '$($installedPackage.PackageFullName)' for all users."
+            # Remove-AppxPackage is an Appx module cmdlet (not a DISM COM API) and is compatible with PS7.
             Remove-AppxPackage -Package $installedPackage.PackageFullName -AllUsers -ErrorAction Stop
             Write-ADTLogEntry -Message 'Slack AppX removal completed.'
         }

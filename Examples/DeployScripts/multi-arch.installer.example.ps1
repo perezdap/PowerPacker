@@ -101,6 +101,12 @@ try {
         Show-ADTInstallationWelcome
         Start-ADTProcess -FilePath $installerPath -PassThru | Out-Null
     }
+    elseif ($DeploymentType -eq 'Uninstall') {
+        Show-ADTInstallationWelcome
+        # Look up the UninstallString from the registry rather than hard-coding a version-specific path.
+        # See Examples/DeployScripts/mozilla.firefox.ps1 for a full registry-driven uninstall pattern.
+        throw 'Uninstall is not implemented in this example. Add registry-driven uninstall logic here.'
+    }
 }
 catch {
     Write-ADTLogEntry -Message "Deployment failed: $($_.Exception.Message)" -Severity 3

@@ -120,6 +120,9 @@ function Test-PSADTAst {
     }
 
     # 4. Ensure try/catch wraps the main logic
+    # TODO: The validator currently requires Close-ADTSession after the catch block rather than inside
+    # finally. This is a workaround for an AST rule limitation, not a style preference. Relax this rule
+    # to allow finally so generated scripts can use the cleaner pattern.
     $topLevelStatements = @()
     if ($ast.EndBlock) {
         $topLevelStatements = @($ast.EndBlock.Statements)
@@ -210,28 +213,48 @@ function Test-PSADTAst {
         }
     }
 
-    if ($ScriptCode -match 'InstallerFilesByArchitecture') {
-        if ($ScriptCode -notmatch 'RuntimeInformation') {
+    # 6. Architecture-aware script validation (fully AST-based)
+    $archAwareMemberAccesses = $ast.FindAll({
+        $args[0] -is [System.Management.Automation.Language.MemberExpressionAst] -and
+        $args[0].Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
+        $args[0].Member.Value -eq 'InstallerFilesByArchitecture'
+    }, $true)
+
+    if ($archAwareMemberAccesses.Count -gt 0) {
+        $runtimeInfoAccesses = $ast.FindAll({
+            $args[0] -is [System.Management.Automation.Language.MemberExpressionAst] -and
+            $args[0].Static -eq $true -and
+            $args[0].Expression -is [System.Management.Automation.Language.TypeExpressionAst] -and
+            $args[0].Expression.TypeName.Name -like '*RuntimeInformation*'
+        }, $true)
+
+        if ($runtimeInfoAccesses.Count -eq 0) {
             $errors += "Architecture-aware scripts must query OS architecture via [System.Runtime.InteropServices.RuntimeInformation]."
         }
 
-        if ($ScriptCode -notmatch 'OSArchitecture') {
+        $osArchAccesses = $ast.FindAll({
+            $args[0] -is [System.Management.Automation.Language.MemberExpressionAst] -and
+            $args[0].Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
+            $args[0].Member.Value -eq 'OSArchitecture'
+        }, $true)
+
+        if ($osArchAccesses.Count -eq 0) {
             $errors += "Architecture-aware scripts must reference OSArchitecture when selecting installers."
         }
 
         $switchStatements = $ast.FindAll({
-                $args[0] -is [System.Management.Automation.Language.SwitchStatementAst]
-            }, $true)
+            $args[0] -is [System.Management.Automation.Language.SwitchStatementAst]
+        }, $true)
 
         if ($switchStatements.Count -eq 0) {
             $errors += "Architecture-aware scripts must use a switch statement to map OS architecture to installer paths."
         }
 
         $logEntries = $ast.FindAll({
-                $args[0] -is [System.Management.Automation.Language.CommandAst] -and
-                $args[0].CommandElements.Count -gt 0 -and
-                $args[0].CommandElements[0].Value -eq 'Write-ADTLogEntry'
-            }, $true)
+            $args[0] -is [System.Management.Automation.Language.CommandAst] -and
+            $args[0].CommandElements.Count -gt 0 -and
+            $args[0].CommandElements[0].Value -eq 'Write-ADTLogEntry'
+        }, $true)
 
         if ($logEntries.Count -eq 0) {
             $errors += "Architecture-aware scripts must call Write-ADTLogEntry when documenting installer selection or fallbacks."
