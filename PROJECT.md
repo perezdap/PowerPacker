@@ -20,11 +20,13 @@ We have removed most of this complexity. The AI Agent now serves as the executio
 - [x] Replaced the ignored repo-level `Build\` scratch usage with a tracked `Examples\DeployScripts\` folder for reusable reference scripts.
 - [x] Simplified testing guidance to rely on built-in PSADT execution from the generated artifact instead of custom sandbox/local test helpers.
 - [x] Added WinGet architecture policy support (`auto` / `native` / locked arches), per-architecture metadata (`MetadataSchemaVersion` 2), SHA256 verification after download, and AST guidance for metadata-driven installer selection.
+- [x] Enforced `Test-PSADTAst` inside `New-PowerPackerPackage` so invalid deploy scripts fail before artifact assembly.
 
 ## Recent Lessons
 - WinGet scope must be applied consistently across both metadata lookup and installer download. VS Code exposed this by returning different user and machine installer URLs.
 - Artifact verification needs to compare three things together: the downloaded installer in `Files\`, the saved WinGet manifest, and `artifact-metadata.json`.
 - The current AST validator is stricter than typical PSADT style and expects `Close-ADTSession` after `catch`, not inside `finally`.
+- Package assembly should not trust pre-validation alone; `New-PowerPackerPackage` now validates the deploy script itself before copying it into the artifact.
 - Durable lessons should be written back into both human-facing docs and agent-facing instructions, not left buried in a single artifact or chat session.
 - Reusable deploy scripts should not live in an ignored repo folder. If a script is worth keeping, commit it under `Examples\DeployScripts\`.
 

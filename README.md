@@ -31,8 +31,6 @@ YAML frontmatter must include at least `winget_id` (and typically `name`). Optio
 #### Architecture policy (WinGet)
 Definitions may set `architecture` in YAML frontmatter (`auto`, `native`, `x64`, `x86`, or `arm64`). Omitted values default to `auto`, which probes WinGet for `x64`, `arm64`, `x86`, and `neutral`, downloads each distinct installer URL it finds, and records per-architecture provenance in `artifact-metadata.json` (`MetadataSchemaVersion` 2): **`InstallerFilesByArchitecture`** (paths under the artifact) and **`InstallerMetadataByArchitecture`** (per-architecture installer URL, SHA256, type, resolved version, and requested scope when supplied). `native` uses the same discovery rules as `auto` but records a different `ArchitecturePolicy` label when you want metadata to express a native-first posture. Locked values download exactly one architecture.
 
-For more detail on endpoint behavior and deploy-script patterns, see [PLAN-ARM-ARCHITECTURE.md](PLAN-ARM-ARCHITECTURE.md).
-
 **Runtime fallback matrix (deploy scripts)**  
 ARM64 endpoints: `ARM64 → X64 → NEUTRAL → fail`.  
 X64 endpoints: `X64 → NEUTRAL → fail`.  
@@ -97,6 +95,7 @@ Tell the agent to pack the application. It will handle metadata lookup, script g
 
 ### 3. Pack from PowerShell (no agent)
 You can assemble an artifact without an agent by calling **`New-PowerPackerPackage`** with a definition Markdown file and a PSADT entry script (often copied or adapted from [Examples/DeployScripts/](Examples/DeployScripts/)).
+The cmdlet validates the deploy script with `Test-PSADTAst` before copying it into the artifact, so invalid PSADT v4 entry scripts fail before any package layout is produced.
 
 ```powershell
 Import-Module .\PowerPacker.psd1 -Force
@@ -150,7 +149,7 @@ cd .\Artifacts\VSCodium.VSCodium
 - **Multi-architecture builds verify SHA256**: When installers are downloaded, PowerPacker hashes each payload and fails the build if it does not match the WinGet metadata SHA256 for that architecture.
 - **Per-architecture WinGet logs**: Multi-architecture builds save `winget-show-<arch>.txt` and `winget-download-<arch>.txt` under `SupportFiles\PowerPacker\` instead of a single pair of files.
 - **Verify artifact metadata against the downloaded installer**: After packaging, compare the installer filename in `Files/`, the saved WinGet manifest, and `SupportFiles\PowerPacker\artifact-metadata.json`. The URL, SHA256, and scope should all describe the same installer variant.
-- **AST validation (`Test-PSADTAst`)**: The validator expects `Open-ADTSession`, then a **top-level** `try`/`catch` wrapping main logic before the statement that contains `Close-ADTSession`. Scripts that only call `Close-ADTSession` inside `finally` can fail that layout rule. Scripts that read **`InstallerFilesByArchitecture`** must use `[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture`, a `switch` mapping, and **`Write-ADTLogEntry`** for selection and fallbacks.
+- **AST validation (`Test-PSADTAst`)**: `New-PowerPackerPackage` rejects deploy scripts that fail AST validation before creating the artifact layout. The validator expects `Open-ADTSession`, then a **top-level** `try`/`catch` wrapping main logic before the statement that contains `Close-ADTSession`. Scripts that only call `Close-ADTSession` inside `finally` can fail that layout rule. Scripts that read **`InstallerFilesByArchitecture`** must use `[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture`, a `switch` mapping, and **`Write-ADTLogEntry`** for selection and fallbacks.
 - **Do not treat `Build/` as a source-of-truth folder**: Reusable deploy scripts should live in a tracked folder, not an ignored scratch directory. This repo uses `Examples\DeployScripts\` for committed reference scripts (see [Examples/DeployScripts/README.md](Examples/DeployScripts/README.md)). Canonical multi-arch selection: `multi-arch.installer.example.ps1`; app-specific examples include `microsoft.visualstudiocode.ps1` and `slacktechnologies.slack.ps1`.
 
 ---
