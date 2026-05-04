@@ -366,10 +366,15 @@ Before generating a deploy script, check whether the app has retired its MSI:
 # Install machine-wide for all users
 $msixPath = Get-ChildItem -Path $dirFiles -Filter '*.msix' | Select-Object -ExpandProperty FullName -First 1
 if (-not $msixPath) { throw "MSIX not found in Files\. Must be downloaded manually from vendor." }
-Add-AppxProvisionedPackage -Online -PackagePath $msixPath -SkipLicense -ErrorAction Stop
+
+# DISM cmdlets (Add-AppxProvisionedPackage, Remove-AppxProvisionedPackage) rely on COM APIs
+# that are unreliable in PowerShell 7+. Delegate to Windows PowerShell 5.1:
+$psPath = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+$provisionCommand = "Add-AppxProvisionedPackage -Online -PackagePath '$msixPath' -SkipLicense -ErrorAction Stop"
+Start-ADTProcess -FilePath $psPath -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $provisionCommand
 ```
 
-> **Warning**: `Add-AppxPackage` does **not** have a `-MachineScope` parameter. It is a per-user cmdlet (Appx module). For machine-wide MSIX provisioning, you must use `Add-AppxProvisionedPackage` (Dism module) with `-Online -SkipLicense`. This is a common error that will produce `A parameter cannot be found that matches parameter name 'MachineScope'`.
+> **Warning**: `Add-AppxPackage` does **not** have a `-MachineScope` parameter.
 
 ### MSIX Uninstall Pattern
 
@@ -380,7 +385,12 @@ if ($pkg) { Remove-AppxPackage -Package $pkg.PackageFullName -AllUsers }
 
 # Remove provisioned package (prevents reinstall for new users)
 $prov = Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like '*AppName*' } | Select-Object -First 1
-if ($prov) { Remove-AppxProvisionedPackage -Online -PackageName $prov.PackageName }
+if ($prov) {
+    # DISM cmdlets must run via Windows PowerShell 5.1 in PowerShell 7+ environments
+    $psPath = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+    $removeCommand = "Remove-AppxProvisionedPackage -Online -PackageName '$($prov.PackageName)' -ErrorAction Stop"
+    Start-ADTProcess -FilePath $psPath -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $removeCommand
+}
 ```
 
 ### MSIX Detection Pattern

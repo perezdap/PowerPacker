@@ -51,7 +51,12 @@ try {
         }
 
         Write-ADTLogEntry -Message "Installing Slack MSIX machine-wide from '$msixPath'."
-        Add-AppxProvisionedPackage -Online -PackagePath $msixPath -SkipLicense -ErrorAction Stop
+        # Add-AppxProvisionedPackage uses DISM COM APIs that are unreliable in PowerShell 7.
+        # Delegate to Windows PowerShell 5.1 where the COM class is properly registered.
+        $psPath = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+        $escapedPath = $msixPath -replace "'", "''"
+        $provisionCommand = "Add-AppxProvisionedPackage -Online -PackagePath '$escapedPath' -SkipLicense -ErrorAction Stop"
+        Start-ADTProcess -FilePath $psPath -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $provisionCommand
         Write-ADTLogEntry -Message 'Slack MSIX installation completed.'
 
         # Remove Desktop shortcuts created during provisioning
@@ -89,7 +94,10 @@ try {
 
         if ($provisionedPackage) {
             Write-ADTLogEntry -Message "Removing provisioned Slack package '$($provisionedPackage.PackageName)'."
-            Remove-AppxProvisionedPackage -Online -PackageName $provisionedPackage.PackageName -ErrorAction Stop
+            # Remove-AppxProvisionedPackage also uses DISM COM APIs; run via Windows PowerShell 5.1.
+            $psPath = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+            $removeCommand = "Remove-AppxProvisionedPackage -Online -PackageName '$($provisionedPackage.PackageName)' -ErrorAction Stop"
+            Start-ADTProcess -FilePath $psPath -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $removeCommand
             Write-ADTLogEntry -Message 'Slack provisioned package removal completed.'
         }
         else {
