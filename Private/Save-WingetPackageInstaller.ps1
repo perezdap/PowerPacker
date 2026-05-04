@@ -14,7 +14,9 @@ function Save-WingetPackageInstaller {
         [string]$InstallerType,
         [string]$Locale,
         [ValidateSet('user', 'machine')]
-        [string]$Scope
+        [string]$Scope,
+
+        [string]$ExpectedSha256
     )
 
     New-Item -ItemType Directory -Force -Path $Directory | Out-Null
@@ -68,6 +70,10 @@ function Save-WingetPackageInstaller {
 
     $installerFiles = @($newFiles | Where-Object { $_.Extension -notin @('.yaml', '.yml', '.txt') } | Select-Object -ExpandProperty FullName)
     $manifestFiles = @($newFiles | Where-Object { $_.Extension -in @('.yaml', '.yml') } | Select-Object -ExpandProperty FullName)
+
+    if ($PSBoundParameters.ContainsKey('ExpectedSha256') -and -not [string]::IsNullOrWhiteSpace($ExpectedSha256)) {
+        Assert-InstallerSha256Matches -LiteralPaths $installerFiles -ExpectedSha256 $ExpectedSha256 -ContextMessage $resolvedId
+    }
 
     [pscustomobject]@{
         DownloadDirectory = $Directory

@@ -13,11 +13,12 @@ function ConvertFrom-WingetShowOutput {
         Publisher = $null
         Moniker   = $null
         Installer = [ordered]@{
-            Type       = $null
-            Locale     = $null
-            Url        = $null
-            Sha256     = $null
-            ReleaseDate = $null
+            Type          = $null
+            Locale        = $null
+            Architecture = $null
+            Url           = $null
+            Sha256        = $null
+            ReleaseDate   = $null
         }
     }
 
@@ -50,6 +51,11 @@ function ConvertFrom-WingetShowOutput {
 
         if ($line -match '^\s*Installer Locale:\s*(.+)$') {
             $result.Installer.Locale = $matches[1].Trim()
+            continue
+        }
+
+        if ($line -match '^\s*Architecture:\s*(.+)$') {
+            $result.Installer.Architecture = $matches[1].Trim()
             continue
         }
 

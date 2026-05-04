@@ -47,5 +47,26 @@ function Parse-PackageMd {
         }
     }
 
+    $architectureKeys = @($result.Keys | Where-Object { $_.ToLowerInvariant() -eq 'architecture' })
+    foreach ($key in $architectureKeys) {
+        if ($key -cne 'architecture') {
+            $null = $result.Remove($key)
+        }
+    }
+
+    $rawArchitecture = if ($result.ContainsKey('architecture')) { $result['architecture'] } else { $null }
+    if ([string]::IsNullOrWhiteSpace($rawArchitecture)) {
+        $result['architecture'] = 'auto'
+    }
+    else {
+        $normalizedArchitecture = $rawArchitecture.Trim().ToLowerInvariant()
+        $allowedArchitectures = @('auto', 'native', 'x64', 'x86', 'arm64')
+        if ($normalizedArchitecture -notin $allowedArchitectures) {
+            throw "Invalid architecture '$rawArchitecture' in definition frontmatter. Allowed values: $($allowedArchitectures -join ', ')."
+        }
+
+        $result['architecture'] = $normalizedArchitecture
+    }
+
     return [pscustomobject]$result
 }

@@ -92,4 +92,28 @@ Close-ADTSession
         $result = Test-PSADTAst -ScriptCode $code
         $result.IsValid | Should -Be $true
     }
+
+    It "Should reject architecture-aware scripts that omit OS architecture detection" {
+        $code = @"
+`$adtSession = @{}
+Open-ADTSession
+try {
+    `$artifactMetadata = '{}' | ConvertFrom-Json
+    `$map = `$artifactMetadata.InstallerFilesByArchitecture
+    `$p = 'C:\setup.exe'
+    Start-ADTProcess -FilePath `$p
+} catch {}
+Close-ADTSession
+"@
+        $result = Test-PSADTAst -ScriptCode $code
+        $result.IsValid | Should -Be $false
+        $result.Errors | Should -Contain "Architecture-aware scripts must query OS architecture via [System.Runtime.InteropServices.RuntimeInformation]."
+    }
+
+    It "Should accept architecture-aware scripts that follow the documented structure" {
+        $examplePath = Join-Path -Path $PSScriptRoot -ChildPath '..\Examples\DeployScripts\multi-arch.installer.example.ps1'
+        $code = Get-Content -LiteralPath $examplePath -Raw
+        $result = Test-PSADTAst -ScriptCode $code
+        $result.IsValid | Should -Be $true
+    }
 }

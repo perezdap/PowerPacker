@@ -43,5 +43,6 @@ Installer:
         $script:capturedWingetArgs[$scopeIndex + 1] | Should -Be 'machine'
         $result.InstallerUrl | Should -Be 'https://example.test/VSCodeSetup-x64-1.115.0.exe'
         $result.RequestedScope | Should -Be 'machine'
+        $result.RequestedArchitecture | Should -BeNullOrEmpty
     }
 }

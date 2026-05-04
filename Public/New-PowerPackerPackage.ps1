@@ -19,6 +19,7 @@ function New-PowerPackerPackage {
 
         [string]$WingetSource,
 
+        [ValidateSet('auto', 'native', 'x64', 'x86', 'arm64')]
         [string]$Architecture,
 
         [string]$InstallerType,
@@ -36,6 +37,13 @@ function New-PowerPackerPackage {
     $definition = Parse-PackageMd -Path $DefinitionPath
     if (-not $definition.winget_id) {
         throw "Definition '$DefinitionPath' does not contain a winget_id in YAML frontmatter."
+    }
+
+    $architecturePolicy = if ($PSBoundParameters.ContainsKey('Architecture') -and -not [string]::IsNullOrWhiteSpace($Architecture)) {
+        $Architecture.Trim().ToLowerInvariant()
+    }
+    else {
+        [string]$definition.architecture
     }
 
     $packageName = if ($PackageDirectoryName) {
@@ -63,6 +71,7 @@ function New-PowerPackerPackage {
     $psadtMetadata = $null
     $wingetMetadata = $null
     $installerDownload = $null
+    $wingetArchitectureJobs = @()
 
     try {
         $templateZipPath = $PsadtTemplateZipPath
@@ -100,7 +109,7 @@ function New-PowerPackerPackage {
 
         if (-not $SkipInstallerDownload) {
             $wingetMetadataParams = @{
-                Id = $definition.winget_id
+                Id   = $definition.winget_id
                 Name = $definition.name
             }
             if ($WingetVersion) {
@@ -108,9 +117,6 @@ function New-PowerPackerPackage {
             }
             if ($WingetSource) {
                 $wingetMetadataParams.Source = $WingetSource
-            }
-            if ($Architecture) {
-                $wingetMetadataParams.Architecture = $Architecture
             }
             if ($InstallerType) {
                 $wingetMetadataParams.InstallerType = $InstallerType
@@ -122,45 +128,154 @@ function New-PowerPackerPackage {
                 $wingetMetadataParams.Scope = $Scope
             }
 
-            $wingetMetadata = Get-WingetPackageMetadata @wingetMetadataParams
-            Set-Content -LiteralPath (Join-Path $powerPackerSupportDirectory 'winget-show.txt') -Value $wingetMetadata.RawOutput
+            if ($architecturePolicy -in @('auto', 'native')) {
+                $resolvedArchitectures = Resolve-WingetArchitectures @wingetMetadataParams
+                if (-not $resolvedArchitectures.Items -or $resolvedArchitectures.Items.Count -eq 0) {
+                    throw "No winget installers were discovered for '$($definition.winget_id)' across probed architectures. Check the package id, scope, and source."
+                }
 
-            $installerDownloadParams = @{
-                Id = $definition.winget_id
-                Name = $definition.name
-                Directory = (Join-Path $artifactDirectory 'Files')
+                $wingetArchitectureJobs = @($resolvedArchitectures.Items)
             }
-            if ($WingetVersion) {
-                $installerDownloadParams.Version = $WingetVersion
-            }
-            if ($WingetSource) {
-                $installerDownloadParams.Source = $WingetSource
-            }
-            if ($Architecture) {
-                $installerDownloadParams.Architecture = $Architecture
-            }
-            if ($InstallerType) {
-                $installerDownloadParams.InstallerType = $InstallerType
-            }
-            if ($Locale) {
-                $installerDownloadParams.Locale = $Locale
-            }
-            if ($Scope) {
-                $installerDownloadParams.Scope = $Scope
+            else {
+                $lockedMetadata = Get-WingetPackageMetadata @wingetMetadataParams -Architecture $architecturePolicy
+                $canonicalLabel = switch ($architecturePolicy) {
+                    'x64' { 'X64' }
+                    'x86' { 'X86' }
+                    'arm64' { 'ARM64' }
+                    default { 'X64' }
+                }
+
+                $wingetArchitectureJobs = @(
+                    [pscustomobject]@{
+                        CanonicalLabel     = $canonicalLabel
+                        WingetArchitecture = $architecturePolicy
+                        Metadata           = $lockedMetadata
+                    }
+                )
             }
 
-            $installerDownload = Save-WingetPackageInstaller @installerDownloadParams
-            Set-Content -LiteralPath (Join-Path $powerPackerSupportDirectory 'winget-download.txt') -Value $installerDownload.RawOutput
+            $wingetMetadata = $wingetArchitectureJobs[0].Metadata
+        }
+
+        $installerFilesByArchitecture = [ordered]@{}
+        $installerMetadataByArchitecture = [ordered]@{}
+        $availableArchitectures = [System.Collections.Generic.List[string]]::new()
+        $aggregatedInstallerFiles = [System.Collections.Generic.List[string]]::new()
+        $aggregatedManifestFiles = [System.Collections.Generic.List[string]]::new()
+        $lastRawDownloadOutput = $null
+
+        if (-not $SkipInstallerDownload) {
+            $filesDirectory = Join-Path $artifactDirectory 'Files'
+
+            foreach ($job in $wingetArchitectureJobs) {
+                $jobMetadata = $job.Metadata
+                $archSupportLabel = $job.WingetArchitecture
+
+                Set-Content -LiteralPath (Join-Path $powerPackerSupportDirectory "winget-show-$archSupportLabel.txt") -Value $jobMetadata.RawOutput
+
+                if ([string]::IsNullOrWhiteSpace($jobMetadata.InstallerSha256)) {
+                    throw "winget metadata for '$($definition.winget_id)' ($archSupportLabel) is missing Installer SHA256; cannot verify downloaded payloads."
+                }
+
+                $installerDownloadParams = @{
+                    Id        = $definition.winget_id
+                    Name      = $definition.name
+                    Directory = $filesDirectory
+                }
+                if ($WingetVersion) {
+                    $installerDownloadParams.Version = $WingetVersion
+                }
+                if ($WingetSource) {
+                    $installerDownloadParams.Source = $WingetSource
+                }
+                if ($InstallerType) {
+                    $installerDownloadParams.InstallerType = $InstallerType
+                }
+                if ($Locale) {
+                    $installerDownloadParams.Locale = $Locale
+                }
+                if ($Scope) {
+                    $installerDownloadParams.Scope = $Scope
+                }
+
+                $installerDownloadParams.Architecture = $job.WingetArchitecture
+                $installerDownloadParams.ExpectedSha256 = $jobMetadata.InstallerSha256
+
+                $jobDownload = Save-WingetPackageInstaller @installerDownloadParams
+                $lastRawDownloadOutput = $jobDownload.RawOutput
+                Set-Content -LiteralPath (Join-Path $powerPackerSupportDirectory "winget-download-$archSupportLabel.txt") -Value $jobDownload.RawOutput
+
+                $primaryInstallerPath = $jobDownload.InstallerFiles | Select-Object -First 1
+                if ([string]::IsNullOrWhiteSpace([string]$primaryInstallerPath)) {
+                    throw "winget download for '$($definition.winget_id)' ($archSupportLabel) did not produce an installer file."
+                }
+
+                $artifactRootFull = [System.IO.Path]::GetFullPath($artifactDirectory).TrimEnd('\')
+                $installerFullPath = [System.IO.Path]::GetFullPath([string]$primaryInstallerPath)
+                if (-not $installerFullPath.StartsWith($artifactRootFull + '\', [System.StringComparison]::OrdinalIgnoreCase)) {
+                    throw "Installer path '$installerFullPath' is not under artifact directory '$artifactRootFull'."
+                }
+                $relativeInstallerPath = $installerFullPath.Substring($artifactRootFull.Length + 1)
+
+                $null = $availableArchitectures.Add($job.CanonicalLabel)
+                $installerFilesByArchitecture[$job.CanonicalLabel] = $relativeInstallerPath
+                $installerMetadataByArchitecture[$job.CanonicalLabel] = [ordered]@{
+                    InstallerUrl     = $jobMetadata.InstallerUrl
+                    InstallerSha256  = $jobMetadata.InstallerSha256
+                    InstallerType    = $jobMetadata.InstallerType
+                    ResolvedVersion  = $jobMetadata.Version
+                    Scope            = $Scope
+                }
+
+                foreach ($path in $jobDownload.InstallerFiles) {
+                    if (-not $aggregatedInstallerFiles.Contains($path)) {
+                        $null = $aggregatedInstallerFiles.Add($path)
+                    }
+                }
+
+                foreach ($path in $jobDownload.ManifestFiles) {
+                    if (-not $aggregatedManifestFiles.Contains($path)) {
+                        $null = $aggregatedManifestFiles.Add($path)
+                    }
+                }
+            }
+
+            $installerDownload = [pscustomobject]@{
+                InstallerFiles = @($aggregatedInstallerFiles)
+                ManifestFiles  = @($aggregatedManifestFiles)
+                RawOutput      = if ($lastRawDownloadOutput) { $lastRawDownloadOutput } else { '' }
+            }
+
+            $legacyPriority = @('X64', 'ARM64', 'X86', 'NEUTRAL')
+            $legacyMetadata = $null
+            foreach ($label in $legacyPriority) {
+                $match = $wingetArchitectureJobs | Where-Object { $_.CanonicalLabel -eq $label } | Select-Object -First 1
+                if ($match) {
+                    $legacyMetadata = $match.Metadata
+                    break
+                }
+            }
+
+            if (-not $legacyMetadata) {
+                $legacyMetadata = $wingetArchitectureJobs[0].Metadata
+            }
+
+            $wingetMetadata = $legacyMetadata
         }
 
         $metadata = [ordered]@{
-            CreatedAt         = (Get-Date).ToString('o')
-            ArtifactDirectory = $artifactDirectory
-            DefinitionPath    = [System.IO.Path]::GetFullPath($DefinitionPath)
-            DeployScriptPath  = [System.IO.Path]::GetFullPath($DeployScriptPath)
-            EntryScriptName   = $EntryScriptName
-            Package           = $definition
-            Psadt             = if ($psadtMetadata) {
+            MetadataSchemaVersion           = 2
+            ArchitecturePolicy              = $architecturePolicy
+            AvailableArchitectures          = @($availableArchitectures)
+            InstallerFilesByArchitecture    = $installerFilesByArchitecture
+            InstallerMetadataByArchitecture = $installerMetadataByArchitecture
+            CreatedAt                       = (Get-Date).ToString('o')
+            ArtifactDirectory               = $artifactDirectory
+            DefinitionPath                  = [System.IO.Path]::GetFullPath($DefinitionPath)
+            DeployScriptPath                = [System.IO.Path]::GetFullPath($DeployScriptPath)
+            EntryScriptName                 = $EntryScriptName
+            Package                         = $definition
+            Psadt                           = if ($psadtMetadata) {
                 [ordered]@{
                     Repository  = $psadtMetadata.Repository
                     TagName     = $psadtMetadata.TagName
@@ -168,17 +283,19 @@ function New-PowerPackerPackage {
                     AssetName   = $psadtMetadata.AssetName
                     Digest      = $psadtMetadata.Digest
                 }
-            } else {
+            }
+            else {
                 [ordered]@{
-                    Source = 'Local override'
+                    Source  = 'Local override'
                     ZipPath = $templateZipPath
                 }
             }
-            Installer         = if ($SkipInstallerDownload) {
+            Installer                       = if ($SkipInstallerDownload) {
                 [ordered]@{
                     Downloaded = $false
                 }
-            } else {
+            }
+            else {
                 [ordered]@{
                     Downloaded       = $true
                     WingetId         = $wingetMetadata.ResolvedId
@@ -189,8 +306,8 @@ function New-PowerPackerPackage {
                     InstallerType    = $wingetMetadata.InstallerType
                     InstallerUrl     = $wingetMetadata.InstallerUrl
                     InstallerSha256  = $wingetMetadata.InstallerSha256
-                    InstallerFiles   = $installerDownload.InstallerFiles
-                    ManifestFiles    = $installerDownload.ManifestFiles
+                    InstallerFiles   = @($installerDownload.InstallerFiles)
+                    ManifestFiles    = @($installerDownload.ManifestFiles)
                 }
             }
         }

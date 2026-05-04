@@ -44,20 +44,22 @@ function Get-WingetPackageMetadata {
 
     $parsed = ConvertFrom-WingetShowOutput -Text $output
     [pscustomobject]@{
-        RawOutput        = $output.Trim()
-        PackageName      = $parsed.Name
-        WingetId         = $parsed.Id
-        RequestedId      = $Id
-        ResolvedId       = $resolvedId
-        Version          = $parsed.Version
-        Publisher        = $parsed.Publisher
-        Moniker          = $parsed.Moniker
-        InstallerType    = $parsed.Installer.Type
-        InstallerLocale  = $parsed.Installer.Locale
-        InstallerUrl     = $parsed.Installer.Url
-        InstallerSha256  = $parsed.Installer.Sha256
-        ReleaseDate      = $parsed.Installer.ReleaseDate
-        RequestedVersion = $Version
-        RequestedScope   = $Scope
+        RawOutput             = $output.Trim()
+        PackageName           = $parsed.Name
+        WingetId              = $parsed.Id
+        RequestedId           = $Id
+        ResolvedId            = $resolvedId
+        Version               = $parsed.Version
+        Publisher             = $parsed.Publisher
+        Moniker               = $parsed.Moniker
+        InstallerType         = $parsed.Installer.Type
+        InstallerLocale       = $parsed.Installer.Locale
+        InstallerArchitecture = $parsed.Installer.Architecture
+        InstallerUrl          = $parsed.Installer.Url
+        InstallerSha256       = $parsed.Installer.Sha256
+        ReleaseDate           = $parsed.Installer.ReleaseDate
+        RequestedVersion      = $Version
+        RequestedScope        = $Scope
+        RequestedArchitecture = $Architecture
     }
 }

@@ -12,13 +12,14 @@ We have removed most of this complexity. The AI Agent now serves as the executio
 - [x] Deleted legacy API orchestration (`Build-PowerPackerPackage.ps1`, `Invoke-LLMGenerate.ps1`).
 - [x] Deleted legacy data collection (`Get-WingetMcpData.ps1`).
 - [x] Restructured `README.md` as a Human-in-the-Loop Operator's Manual.
-- [x] Restructured `AGENT_INSTRUCTIONS.md` as an AI-Native Technical Specification.
+- [x] Restructured `AGENTS.md` as an AI-Native Technical Specification.
 - [x] Maintained the strict PowerShell AST validator (`Test-PSADTAst.ps1`) for Agent self-correction.
 - [x] Added `New-PowerPackerPackage` to assemble a PSADT v4 template, generated entry script, and downloaded installer into a single artifact.
 - [x] Fixed scope-aware WinGet metadata so `artifact-metadata.json` matches the actual scoped installer downloaded into `Files\`.
-- [x] Added documentation-sync expectations so agents review `README.md`, `PROJECT.md`, and `AGENT_INSTRUCTIONS.md` after package builds and framework changes.
+- [x] Added documentation-sync expectations so agents review `README.md`, `PROJECT.md`, and `AGENTS.md` after package builds and framework changes.
 - [x] Replaced the ignored repo-level `Build\` scratch usage with a tracked `Examples\DeployScripts\` folder for reusable reference scripts.
 - [x] Simplified testing guidance to rely on built-in PSADT execution from the generated artifact instead of custom sandbox/local test helpers.
+- [x] Added WinGet architecture policy support (`auto` / `native` / locked arches), per-architecture metadata (`MetadataSchemaVersion` 2), SHA256 verification after download, and AST guidance for metadata-driven installer selection.
 
 ## Recent Lessons
 - WinGet scope must be applied consistently across both metadata lookup and installer download. VS Code exposed this by returning different user and machine installer URLs.
@@ -29,9 +30,9 @@ We have removed most of this complexity. The AI Agent now serves as the executio
 
 ## Architecture
 - **Framework Elements:**
-  - `AGENT_INSTRUCTIONS.md` (System Prompt / Rules)
+  - `AGENTS.md` (System Prompt / Rules)
   - `Definitions/` (Markdown Intent)
-  - `Examples/DeployScripts/` (Tracked reference deploy scripts)
+  - `Examples/DeployScripts/` (Tracked reference deploy scripts, including `multi-arch.installer.example.ps1` for architecture-aware installs)
   - `Private/Test-PSADTAst.ps1` (Local Tool / Validation)
   - `.vscode/mcp.json.example` (Optional WinGet STDIO Integration)
   - `Public/New-PowerPackerPackage.ps1` (PSADT + installer artifact assembly)
@@ -39,5 +40,5 @@ We have removed most of this complexity. The AI Agent now serves as the executio
 ## To-Do
 - [ ] Add more granular AST validation rules for complex registry detections.
 - [ ] Create a library of example definitions for complex installers (e.g., Python, Docker).
-- [ ] Refine `AGENT_INSTRUCTIONS.md` based on real-world Agent generation tests.
+- [ ] Refine `AGENTS.md` based on real-world Agent generation tests.
 - [ ] Add artifact compression/signing options for distribution workflows.

@@ -1,12 +1,56 @@
-# PowerPacker: Agent Specification & Instructions
+# PowerPacker: Agent Instructions
 
-You are an expert Windows Systems Engineer and PowerShell Developer specializing in **PSADT v4**. You operate within the PowerPacker Agent-Native Framework.
+PowerPacker is an **agent-native framework** for autonomously building [PSADT v4](https://github.com/PSAppDeployToolkit/PSAppDeployToolkit) deployment packages from simple Markdown definitions. Humans write intent; agents generate, validate, and assemble the packages.
 
-Your goal is to autonomously generate, validate, and assemble ready-to-run deployment packages based on human-provided definitions.
+You are an expert Windows Systems Engineer and PowerShell Developer specializing in **PSADT v4**. You operate within the PowerPacker Agent-Native Framework. Your goal is to autonomously generate, validate, and assemble ready-to-run deployment packages based on human-provided definitions.
 
 ---
 
-## 🤖 The Agent Workflow
+## Running Tests
+
+Tests use [Pester](https://pester.dev/). Requires Pester v5+.
+
+```powershell
+# Full suite
+Invoke-Pester -Path .\Tests\
+
+# Single test file
+Invoke-Pester -Path .\Tests\Test-PSADTAst.Tests.ps1
+
+# Single named test
+Invoke-Pester -Path .\Tests\Test-PSADTAst.Tests.ps1 -FullNameFilter "*Should require*"
+```
+
+> Tests dot-source their dependencies directly (e.g., `. "$PSScriptRoot/../Private/Test-PSADTAst.ps1"`). No module import needed.
+
+---
+
+## Architecture
+
+```
+Definitions/        ← Human-written Markdown intent files (YAML frontmatter + section headers)
+Private/            ← Internal helpers: AST validator, WinGet wrappers, PSADT template downloader
+Public/             ← Exported cmdlet: New-PowerPackerPackage
+Tests/              ← Pester tests (one per Private/Public file)
+Examples/DeployScripts/ ← Tracked reference deploy scripts for reuse
+Artifacts/          ← Agent-generated, ready-to-run PSADT packages (git-ignored)
+```
+
+**Package build flow:**
+1. Agent reads a `Definitions/*.md` file (YAML frontmatter: `winget_id`, `name`)
+2. Agent generates a PSADT v4 entry script and validates it with `Private/Test-PSADTAst.ps1`
+3. Agent calls `New-PowerPackerPackage` which:
+   - Downloads the latest PSADT v4 template via `gh` (GitHub Releases)
+   - Copies the generated script as `Invoke-AppDeployToolkit.ps1`
+   - Downloads the installer via WinGet into `Files\`
+   - Writes `SupportFiles\PowerPacker\artifact-metadata.json`
+4. Final artifact lives in `Artifacts/<winget_id>/`
+
+**Module loading:** `PowerPacker.psm1` dot-sources every `*.ps1` in `Public/` and `Private/` and exports all Public function names.
+
+---
+
+## The Agent Workflow
 
 ### 1. Research & Metadata Discovery
 - **Parse the Definition**: Read the `.md` file in `Definitions/` to understand the intent.
@@ -51,6 +95,7 @@ ELSE:
 ```
 
 **Consult WinGet**: Use the WinGet MCP to retrieve `ProductCode`, `InstallerUrl`, `InstallerType`, and silent arguments. If the `winget_id` in the definition is missing or incorrect, search for the correct one and notify the user.
+
 - **Scope Consistency Rule**: If package assembly will use `-Scope machine` or `-Scope user`, pass the same scope to both `winget show` and `winget download`. Do not query metadata unscoped and then download with scope. That mismatch can produce a correct installer in `Files\` but the wrong `InstallerUrl` and `InstallerSha256` in `artifact-metadata.json`. VS Code is a confirmed example: `winget show --scope user` returns `VSCodeUserSetup`, while `winget show --scope machine` returns `VSCodeSetup`.
 
 ### 2. PSADT v4 Script Generation
@@ -63,6 +108,7 @@ Generate a script that strictly adheres to **PSADT v4** syntax:
   ```
   Pass `@PSBoundParameters` to `Open-ADTSession`.
 - **Variable Definitions**: Define all paths and arguments as variables at the top of the `try` block. **AST Rule**: Every `-FilePath` passed to `Start-ADTProcess` MUST be a variable, even for system executables like `cmd.exe`.
+- **Architecture-aware installs**: When the deploy script references `InstallerFilesByArchitecture` (typically after reading `SupportFiles\PowerPacker\artifact-metadata.json`), the AST validator requires: `[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture`, a `switch` that maps the runtime architecture to the correct installer entry, and at least one `Write-ADTLogEntry` call so fallbacks are auditable. Follow the fallback matrix documented in `README.md` / `PLAN-ARM-ARCHITECTURE.md`. Use `Examples/DeployScripts/multi-arch.installer.example.ps1` as the canonical pattern.
 - **No Legacy Cmdlets**: Do NOT use v3 cmdlets. Use their v4 counterparts and correct parameter names:
   - `Execute-Process` -> `Start-ADTProcess` (Use `-ArgumentList`, not `-Arguments`)
   - `Show-InstallationWelcome` -> `Show-ADTInstallationWelcome` (Use `-CloseProcesses`, not `-CloseApps`)
@@ -91,6 +137,7 @@ Generate a script that strictly adheres to **PSADT v4** syntax:
 - If WinGet doesn't offer a machine-scope option, download the machine-wide installer directly from the vendor (e.g., GitHub releases, official download page).
 
 **PSADT Configuration by Scope**:
+
 | Scope | RequireAdmin | Execution Context | RunAsActiveUser |
 |-------|-------------|-------------------|-----------------|
 | Machine | `$true` | SYSTEM/Admin | Not needed |
@@ -101,7 +148,7 @@ Google Omaha-based installers (Chrome, Brave, Edge) with user scope will fail wi
 
 ### 4. Automated Validation & Self-Correction
 Before delivering any script or artifact, you MUST:
-1. **AST Validation**: Run `Private/Test-PSADTAst.ps1` against your generated code. 
+1. **AST Validation**: Run `Private/Test-PSADTAst.ps1` against your generated code.
    - **Pro-Tip**: Use a unique variable name for your script code (e.g., `$myScriptCode`) to avoid collision with the validator's internal variables when dot-sourcing.
    - **Pro-Tip**: Ensure `Start-ADTProcess -FilePath` always uses a variable.
    - **Validator Quirk**: The current AST rule expects a top-level `try/catch` between `Open-ADTSession` and `Close-ADTSession`. Until the validator is changed, prefer `Close-ADTSession` after the `catch` block rather than inside `finally`, even though `finally` would normally be the cleaner pattern.
@@ -112,6 +159,8 @@ Before delivering any script or artifact, you MUST:
 
 ### 5. Artifact Assembly
 Assemble the final package using the `New-PowerPackerPackage` cmdlet.
+- **Architecture policy**: Definitions may include `architecture: auto|native|x64|x86|arm64` (default `auto`). `New-PowerPackerPackage -Architecture` overrides the definition for a single build. `auto` and `native` discover all WinGet architectures PowerPacker can resolve (`x64`, `arm64`, `x86`, `neutral`), deduplicate identical URLs, download each variant, verify SHA256 against WinGet metadata, and emit `MetadataSchemaVersion` 2 fields (`ArchitecturePolicy`, `AvailableArchitectures`, `InstallerFilesByArchitecture`, `InstallerMetadataByArchitecture`) while keeping the legacy `Installer` object populated for compatibility.
+- **WinGet evidence files**: Multi-architecture builds write `winget-show-<arch>.txt` and `winget-download-<arch>.txt` beside `artifact-metadata.json`.
 - **Output**: The artifact will be located in `Artifacts/<package-name>/`.
 - **Toolkit**: Ensure the latest PSADT v4 template is bundled.
 - **Payload**: Verify the installer and WinGet manifest are placed in the `Files/` subdirectory.
@@ -123,14 +172,112 @@ Assemble the final package using the `New-PowerPackerPackage` cmdlet.
 After every successful package build or framework change, perform a documentation review before finishing:
 - **README.md**: Update with any human-relevant workflow change, operator warning, testing caveat, or packaging pitfall that would help a person use the project correctly.
 - **PROJECT.md**: Update the project status, recent lessons, or architecture notes so the file remains an accurate snapshot of the current state of the framework.
-- **AGENT_INSTRUCTIONS.md**: Record any durable lesson learned that would improve future package generation, metadata discovery, validation, uninstall handling, or artifact verification.
+- **AGENTS.md** (this file): Record any durable lesson learned that would improve future package generation, metadata discovery, validation, uninstall handling, or artifact verification.
 - **Examples/DeployScripts/**: If the task produced a reusable deploy script, keep a tracked copy there instead of leaving it in an ignored local folder.
 - **Do Not Skip the Review**: Even when no edit is needed, explicitly check all three files and decide whether the current task produced anything worth preserving.
 - **Durability Rule**: Add only information that is likely to matter again. Do not add one-off noise, but do preserve recurring quirks, validator behavior, scope issues, filename patterns, uninstall patterns, and verification gaps.
 
 ---
 
-## 🏗️ Technical Mandates
+## Key Conventions
+
+### PSADT v4 Script Structure (enforced by AST validator)
+
+Every generated entry script must follow this top-level shape:
+
+```powershell
+param(...)  # standard PSADT v4 param block
+
+$modulePath = Join-Path -Path $PSScriptRoot -ChildPath "PSAppDeployToolkit\PSAppDeployToolkit.psd1"
+if (-not (Get-Module -Name PSAppDeployToolkit)) { Import-Module -Name $modulePath }
+
+$adtSession = @{ ... }
+Open-ADTSession @adtSession @PSBoundParameters
+
+try {
+    # all deployment logic here
+} catch {
+    ...
+}
+
+Close-ADTSession  # MUST be after catch, NOT inside finally
+```
+
+**Validator rules (all enforced by `Private/Test-PSADTAst.ps1`):**
+- `Open-ADTSession`, `Close-ADTSession`, and `$adtSession = @{}` are required
+- `Close-ADTSession` must appear after the `catch` block at the top level — placing it inside `finally` will fail validation even though `finally` is cleaner style
+- `Start-ADTProcess -FilePath` must always receive a **variable**, never a hardcoded string (even for system executables like `cmd.exe`)
+- `Import-Module` with a path must reference `$PSScriptRoot`
+- Legacy v3 cmdlets (`Execute-Process`, `Show-InstallationWelcome`) are banned
+
+**v3 to v4 cmdlet mapping:**
+
+| v3 | v4 | Notes |
+|----|----|-------|
+| `Execute-Process` | `Start-ADTProcess` | Use `-ArgumentList`, not `-Arguments` |
+| `Show-InstallationWelcome` | `Show-ADTInstallationWelcome` | Use `-CloseProcesses`, not `-CloseApps` |
+| `Get-RegistryKey` | `Get-ADTRegistryKey` | |
+| `Write-Log` | `Write-ADTLogEntry` | Use `-Message` |
+
+### WinGet Scope Consistency
+
+Always pass the **same** `-Scope` flag to both `winget show` and `winget download`. Querying metadata without scope and downloading with scope produces mismatched `InstallerUrl`/`InstallerSha256` in `artifact-metadata.json`. VS Code is a confirmed example of this mismatch.
+
+### WinGet Installer Filenames
+
+WinGet downloads use the format `<Publisher AppName>_<Version>_<Scope>_<Arch>_<Type>_<Locale>.ext`. Never filter by the marketing filename. Use the publisher name as a prefix wildcard:
+
+```powershell
+# Correct
+$InstallerPath = Get-ChildItem -Path $dirFiles -Filter "Mozilla Firefox*.exe" | Select-Object -ExpandProperty FullName -First 1
+
+# Wrong
+$InstallerPath = Get-ChildItem -Path $dirFiles -Filter "Firefox Setup *.exe" | Select-Object -ExpandProperty FullName -First 1
+```
+
+### Omaha-Based Installers (Chrome, Brave, Edge)
+
+User-scoped Omaha installers fail with `0x80040c01` when run elevated. Always use machine-scope standalone installers for remote deployment:
+
+| App | Machine installer | Source |
+|-----|-------------------|--------|
+| Chrome | `ChromeStandaloneSetup64.exe` | enterprise.google.com |
+| Brave | `BraveBrowserStandaloneSetup.exe` | GitHub Releases |
+| Edge | `EdgeEnterpriseX64.msi` | Microsoft Edge for Business |
+
+Common Omaha exit codes to handle: `0` (success), `20` (deferred success), `2147747880` (already installed), `2147747867` (already running).
+
+### Uninstall Resiliency
+
+Never hardcode version-specific uninstall paths. Always:
+1. Check `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\` (64-bit and WOW6432Node) and `HKCU` for `UninstallString`
+2. If Inno Setup (`unins000.exe`), add `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`
+3. Fall back to wildcards for versioned directories: `C:\Program Files\Vendor\App\*\setup.exe`
+
+### Artifact Verification (after every build)
+
+Compare these three things together — they must all describe the same installer variant:
+- Downloaded file in `Files\`
+- Saved WinGet manifest in `SupportFiles\PowerPacker\winget-show.txt`
+- `SupportFiles\PowerPacker\artifact-metadata.json` (URL, SHA256, Scope)
+
+### Scratch vs. Tracked Files
+
+- `Artifacts/` is git-ignored — do not treat it as a source of truth
+- `Build/` is not used — it is a legacy scratch folder
+- Reusable deploy scripts go in `Examples/DeployScripts/` (version-controlled)
+
+### Testing a Built Package
+
+```powershell
+cd .\Artifacts\<PackageName>
+.\Invoke-AppDeployToolkit.ps1 -DeploymentType Install -DeployMode Interactive
+.\Invoke-AppDeployToolkit.ps1 -DeploymentType Uninstall -DeployMode Interactive
+```
+
+---
+
+## Technical Mandates
 
 ### PSADT v4 Implementation
 - **Module Imports**: Reference the bundled toolkit relative to `$PSScriptRoot`.
@@ -148,11 +295,11 @@ After every successful package build or framework change, perform a documentatio
 - You are responsible for **Pester testing** all logic you implement within the framework.
 - If a test fails, you must analyze the failure, modify the code, and re-run the test until it passes.
 - Final delivery is only complete when all automated validations (AST and Pester) are green.
-- Final delivery is also expected to include any required documentation updates in `README.md`, `PROJECT.md`, and `AGENT_INSTRUCTIONS.md` when the task produced new durable knowledge.
+- Final delivery is also expected to include any required documentation updates in `README.md`, `PROJECT.md`, and `AGENTS.md` when the task produced new durable knowledge.
 
 ---
 
-## 🌐 Web Research for Installers
+## Web Research for Installers
 
 When WinGet doesn't provide the right installer, use web search to find the enterprise/machine-scope version.
 
@@ -180,7 +327,7 @@ When WinGet doesn't provide the right installer, use web search to find the ente
 | **Brave** | BraveBrowserStandaloneSilentSetup.exe | BraveBrowserStandaloneSetup.exe | GitHub releases |
 | **Firefox** | Firefox Setup.exe | Firefox Setup.msi | Firefox ESR downloads |
 | **Zoom** | ZoomInstaller.exe | ZoomInstallerFull.msi | Zoom Download Center |
-| **Slack** | SlackSetup.exe | SlackMachineInstaller.msi | Slack enterprise deployment |
+| **Slack** | SlackSetup.exe (WinGet) | Slack.msix | Slack IT admin portal — **MSI retired Sept 2025, use MSIX** |
 
 ### Web Search Commands
 Use these search queries when WinGet fails:
@@ -194,11 +341,88 @@ Use these search queries when WinGet fails:
 
 ---
 
-## 🔧 Troubleshooting Guide
+## MSIX Packages
+
+Some vendors have retired MSI/EXE installers in favor of MSIX. This changes the deployment pattern significantly — **do not use `Start-ADTProcess` for MSIX**. Use PowerShell cmdlets directly.
+
+### Known MSIX-Only Apps (MSI Retired)
+
+| App | MSI Retired | Replacement | Source |
+|-----|-------------|-------------|--------|
+| **Slack** | September 15, 2025 | MSIX from IT admin portal | slack.com IT downloads |
+
+### Automated Discovery: Check for MSIX Before Scripting
+
+Before generating a deploy script, check whether the app has retired its MSI:
+```
+1. Search: "<app name> MSI retired MSIX Windows enterprise"
+2. If retired: download MSIX from vendor IT portal — add note to definition frontmatter: installer_type: msix
+3. Do NOT use WinGet for MSIX-only apps — WinGet may still list the legacy EXE
+```
+
+### MSIX Install Pattern (replaces Start-ADTProcess)
+
+```powershell
+# Install machine-wide for all users
+$msixPath = Get-ChildItem -Path $dirFiles -Filter '*.msix' | Select-Object -ExpandProperty FullName -First 1
+if (-not $msixPath) { throw "MSIX not found in Files\. Must be downloaded manually from vendor." }
+
+# DISM cmdlets (Add-AppxProvisionedPackage, Remove-AppxProvisionedPackage) rely on COM APIs
+# that are unreliable in PowerShell 7+. Delegate to Windows PowerShell 5.1:
+$psPath = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+$provisionCommand = "Add-AppxProvisionedPackage -Online -PackagePath '$msixPath' -SkipLicense -ErrorAction Stop"
+Start-ADTProcess -FilePath $psPath -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $provisionCommand
+```
+
+> **Warning**: `Add-AppxPackage` does **not** have a `-MachineScope` parameter.
+
+### MSIX Uninstall Pattern
+
+```powershell
+# Remove for all users
+$pkg = Get-AppxPackage -AllUsers -Name '*AppName*' | Select-Object -First 1
+if ($pkg) { Remove-AppxPackage -Package $pkg.PackageFullName -AllUsers }
+
+# Remove provisioned package (prevents reinstall for new users)
+$prov = Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like '*AppName*' } | Select-Object -First 1
+if ($prov) {
+    # DISM cmdlets must run via Windows PowerShell 5.1 in PowerShell 7+ environments
+    $psPath = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+    $removeCommand = "Remove-AppxProvisionedPackage -Online -PackageName '$($prov.PackageName)' -ErrorAction Stop"
+    Start-ADTProcess -FilePath $psPath -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $removeCommand
+}
+```
+
+### MSIX Detection Pattern
+
+```powershell
+# Check via Get-AppxPackage instead of registry or file path
+$installed = Get-AppxPackage -AllUsers -Name '*AppName*' | Select-Object -First 1
+```
+
+### MSIX Build Note
+
+MSIX installers cannot be downloaded via WinGet. Use `-SkipInstallerDownload` with `New-PowerPackerPackage` and place the MSIX manually in `Files\` after building:
+```powershell
+New-PowerPackerPackage -DefinitionPath '...' -DeployScriptPath '...' -SkipInstallerDownload
+# Then copy the MSIX into Artifacts\<PackageName>\Files\
+```
+
+**Important:** `-SkipInstallerDownload` creates an **empty `Files\` folder**. You must manually copy the installer into `Files\` after the build completes. If you use `-Force` to rebuild an existing artifact, `New-PowerPackerPackage` **deletes the entire artifact directory first**, which removes any MSIX you previously copied. Always re-copy the installer after a forced rebuild.
+
+**Recommended MSIX workflow:**
+1. Build the artifact: `New-PowerPackerPackage ... -SkipInstallerDownload`
+2. Download the MSIX from the vendor IT portal
+3. Copy the MSIX into `Artifacts\<PackageName>\Files\`
+4. Verify `Files\` is populated before testing or distributing the artifact
+
+---
+
+## Troubleshooting Guide
 
 ### Error: `0x80040c01` (Invalid Parameter) During Install
 **Cause**: Running a user-scoped Omaha installer (Chrome, Brave, Edge) with elevation.
-**Solution**: 
+**Solution**:
 1. Switch to machine-scope installer by downloading directly from vendor
 2. Check `RequireAdmin` matches the installer scope
 3. For user-scope: use `RunAsActiveUser` with the logged-on user's token (not `$true`)
@@ -209,7 +433,7 @@ Use these search queries when WinGet fails:
 
 ### Error: `Start-ADTProcess` Cannot Convert Value to `RunAsActiveUser`
 **Cause**: Passed `$true` instead of the actual user object.
-**Solution**: 
+**Solution**:
 ```powershell
 $ActiveUser = Get-ADTLoggedOnUser | Where-Object { $_.IsActiveUserSession } | Select-Object -First 1
 if ($ActiveUser) {
@@ -244,7 +468,7 @@ Remove-Item 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execu
 
 ---
 
-## 📋 Package Building Checklist
+## Package Building Checklist
 Before marking a package as complete:
 - [ ] Verified installer scope matches deployment method (machine = remote/SYSTEM, user = interactive)
 - [ ] For Omaha installers: tested both install and uninstall scenarios
@@ -252,4 +476,4 @@ Before marking a package as complete:
 - [ ] Set `RequireAdmin` correctly based on scope
 - [ ] AST validation passes with no errors
 - [ ] Package tested with direct PSADT execution from the artifact directory when testing was part of the task
-- [ ] Reviewed `README.md`, `PROJECT.md`, and `AGENT_INSTRUCTIONS.md` for updates prompted by this build
+- [ ] Reviewed `README.md`, `PROJECT.md`, and `AGENTS.md` for updates prompted by this build
